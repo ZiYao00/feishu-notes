@@ -9,7 +9,8 @@
     "capture": "node src/cli.js capture",
     "serve": "node src/cli.js serve",
     "cleanup": "node src/cli.js cleanup",
-    "check": "node src/cli.js check"
+    "check": "node src/cli.js check",
+    "verify:reader": "node scripts/verify-reader.js"
   },
   "dependencies": {
     "playwright-core": "^1.63.0",

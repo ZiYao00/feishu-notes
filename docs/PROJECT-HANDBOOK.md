@@ -34,11 +34,12 @@
 
 ### 媒体
 
-- 扫描图片、视频等媒体。
+- 扫描图片、视频等媒体，并记录可用的宽高、比例和 standalone / table-cell 上下文。
 - 在批量下载前尽量获取媒体数量、类型和大小。
 - 大文件/大量媒体使用软限制。
 - 不允许因为预检而静默丢媒体。
 - 完整归档使用本地相对资源路径。
+- 媒体落盘后计算 SHA-256；单篇文章内相同内容只保存一份物理文件，但所有逻辑出现位置必须保留。
 - 飞书播放器内部封面、临时 Blob UI 资源不能误算为正文媒体。
 
 ### 归档
@@ -82,6 +83,17 @@ Viewer：
 - 默认只监听 loopback。
 - 只读取 `library/`。
 - 不要求用户保持飞书登录。
+- 使用统一 Reader Shell + 内容上下文渲染，而不是把用户直接跳转到裸 `article.html`。
+- 长文提供 TOC、阅读进度、明暗主题、桌面 TOC 折叠和窄屏目录抽屉。
+- Desktop 在 TOC 与正文之间提供可拖动 Splitter：支持鼠标拖动、键盘左右键、双击恢复默认，并在本机记忆目录宽度。
+- Reader 正文不使用固定 760px；正文、标题、表格和媒体占用 Splitter 调整后剩余的安全空间并共享左基准线。
+- 取消整块白色 Paper 背景；视觉层次由章节、表格、引用、代码、链接、列表和媒体组的局部 CSS 增强建立。
+- 正文视频保持原始横/竖比例并受视口高度限制。
+- 同一个 Media Block 内允许多媒体 Grid；禁止跨 Block 聚合或重排媒体。
+- 表格内图片/视频统一变成约 120px 高的紧凑触发卡，点击后使用黑色无边 Cinema Lightbox，避免撑高表格。
+- 正文图片限制显示尺寸并支持点击进入同一 Lightbox。
+- 超宽表格只在自身容器横向滚动，不允许撑宽整个页面。
+- 对未知/未来 Block 使用保守 fallback：优先保留文本或媒体，只有真正空块才跳过。
 - 对 MP4 提供 Range 支持。
 - 不执行原飞书页面中的脚本。
 
@@ -253,6 +265,24 @@ Preflight
 超过阈值 → 静默跳过
 ```
 
+### 单篇媒体内容去重
+
+下载后的物理媒体使用 SHA-256 内容哈希作为 canonical identity：
+
+```text
+Feishu Media A ─┐
+                ├─→ assets/videos/sha256-<hash>.mp4
+Feishu Media B ─┘
+```
+
+规则：
+
+- 去重比较真实文件内容，不使用文件大小、文件名或 URL 代替哈希；
+- 只去重物理文件，不能删除文章中的逻辑媒体出现位置；
+- `archive.json` v2 使用 `contentHash` / `duplicateOf` 记录映射，并区分 logical / physical storage；
+- 旧文件清理只能在新 Markdown、HTML 和 Manifest 成功写入之后执行；
+- V1 去重范围限定在单篇文章目录，不做跨文章全局媒体池。
+
 ## 7. archive.json 状态语义
 
 ### complete
@@ -341,27 +371,32 @@ data/logs/viewer.log.err
 
 涉及 Viewer 时至少检查：
 
+- `npm run verify:reader` 通过；
 - `127.0.0.1:4173` 返回 200；
 - 首页能看到归档文章；
-- article.html 返回 200；
+- Reader 页面返回 200；
+- TOC 数量与正文 Heading 数匹配；
+- standalone 视频受视口边界约束；
+- table-cell 视频转换为紧凑触发卡；
+- Desktop 与窄屏无页面级横向溢出；
 - MP4 Range 返回 206；
 - Viewer 不监听外网接口。
 
-涉及 Service BAT 时至少检查：
+涉及 Service BAT 或 Viewer 修复时至少检查：
 
 ```bat
 service.bat status
-service.bat start
-service.bat status
-service.bat stop
+service.bat restart
 service.bat status
 ```
 
-并确认启动后：
+并确认重启后：
 
 ```text
 GET http://127.0.0.1:4173/ → 200
 ```
+
+修复/验收完成后默认保持 Viewer 为 `running`，让用户可以立即刷新页面测试最新结果。只有用户明确要求停止服务时，才执行 `service.bat stop`。
 
 ## 11. 验证基线
 
@@ -371,6 +406,8 @@ GET http://127.0.0.1:4173/ → 200
 - 媒体能保存为本地文件。
 - Markdown / HTML 不依赖飞书媒体 CDN。
 - 本地 MP4 支持 Range。
+- Reader 已用 9:16、16:9、1:1、4:3、同 Block Media Grid、table-cell、图片 Lightbox、重复标题以及 1920/1440/1366/390 四档视口 fixture 做自动回归。
+- Reader 回归还覆盖 Splitter 拖动、宽度持久化、双击复位、键盘调整、流式正文宽度、透明 Reader Canvas 和章节 Reading Enhancement 样式。
 - 清理 Profile 可重建缓存后，登录会话仍可继续使用。
 
 不要把某个真实测试文档 ID 或 URL 写进 tracked 文件。

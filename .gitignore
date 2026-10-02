@@ -15,6 +15,8 @@ data/tmp/**
 !data/tmp/.gitkeep
 data/logs/**
 !data/logs/.gitkeep
+data/styles/**
+!data/styles/.gitkeep
 
 # Offline library is user data, not source code
 library/**

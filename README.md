@@ -86,9 +86,18 @@ data/profiles/<profile>/
 - 输出经过清理和消毒的离线 HTML。
 - 下载图片、视频和支持的本地媒体。
 - 将文章中的媒体地址改写成本地相对路径。
+- 在单篇文章内按 SHA-256 内容去重重复媒体；相同视频只保留一份物理文件，但保留文章中的全部出现位置。
 - 在下载大量媒体前做数量与体积预检。
 - 支持多个相互隔离的飞书账号 Profile。
-- 提供本地 Viewer 统一浏览 `library/`。
+- 提供自适应 Reader：长文目录、阅读进度、明暗主题、响应式布局、可折叠 TOC。
+- Desktop 在 TOC 与正文之间提供可拖动 Splitter：目录宽度可在安全范围内调整、双击复位、键盘左右键微调，并自动记忆。
+- 正文不再固定为 760px；Reader 使用 Splitter 调整后剩余的可用空间，标题/正文/表格/媒体共享同一左基准线。
+- 取消“大白纸”容器视觉，改为透明 Reader Canvas；章节、表格、引用、代码、链接、媒体组等通过局部 Reading Enhancement CSS 建立阅读层次。
+- 同一个 Media Block 内的多个媒体允许自动 Grid；绝不跨 Block 重排媒体。
+- 正文视频按原始横/竖比例自适应；表格内媒体统一压缩为约 120px 高的紧凑触发卡，点击后进入 Cinema Lightbox。
+- 正文图片限制显示尺寸并支持点击放大；图片与视频共用黑色、无边框的全屏 Lightbox。
+- 超宽表格只在自身容器内横向滚动，不撑宽整个页面。
+- 对暂未识别的未来 Block 使用保守降级：优先保留文本或媒体，避免静默丢内容。
 - 本地视频支持 HTTP Range，可在浏览器拖动播放进度。
 - 清理 Chrome 可重建缓存，同时保留登录状态。
 - 输出格式不绑定 Obsidian；其它 Markdown 工具也可以读取。
@@ -112,9 +121,18 @@ library/<文章目录>/
 - Markdown：通用笔记格式。
 - `article.html`：项目 Viewer 使用的离线阅读页面。
 - `archive.json`：归档状态、来源、媒体完整性等机器可读信息。
-- `assets/`：本地图片和视频。
+- `assets/`：本地图片和视频。物理文件采用 `sha256-<content-hash>.<ext>` 的内容寻址命名，单篇文章内重复内容只保存一次。
 
 `library/` 是唯一正式资料库（single source of truth）。
+
+### 逻辑媒体与物理文件
+
+飞书可能为同一段视频生成不同的媒体 ID 和下载 URL。项目不会只按 URL/文件名判断重复，而是在媒体落盘后计算 SHA-256：
+
+- **逻辑媒体**：保留每个原文出现位置、Block 关系、媒体 ID 和尺寸；
+- **物理资产**：相同内容只保留一份 canonical 文件；
+- `archive.json` v2 会记录 `contentHash`、`duplicateOf`、逻辑/物理媒体数量及去重节省空间；
+- V1 只做**单篇文章内部去重**，不建立跨文章的全局媒体池，保证每篇归档可独立移动和删除。
 
 ## 媒体预检与大文件保护
 
@@ -220,6 +238,39 @@ Obsidian **不是项目依赖**。
 - 用 Typora / VS Code 等工具读取。
 
 如果某个用户希望让 Obsidian 直接看到这些文件，可以自行通过操作系统目录链接将 `library/` 暴露到自己的 Vault。项目代码不记录或管理该用户的 Obsidian 路径。
+
+浏览器 Reader 与 Obsidian 的 CSS 运行时保持独立。其它 CSS 仓库可以作为视觉参考，但不是 Viewer 依赖。
+
+### 本机 Reader CSS 覆盖
+
+可选创建：
+
+```text
+data/styles/reader.user.css
+```
+
+如果文件存在，Viewer 会在官方 `reader.css` 之后加载它。该文件被 Git 忽略，适合本机调整字体、颜色、间距、圆角、媒体尺寸等个人视觉偏好；不要用它改变 Reader DOM 契约或隐藏关键功能。
+
+## Reader 回归验证
+
+修改 Reader、媒体布局或 Viewer 后运行：
+
+```bash
+npm run verify:reader
+```
+
+该测试使用项目内临时 fixture，不依赖真实飞书文档，覆盖：
+
+- 9:16、16:9、1:1、4:3 视频布局；
+- standalone 与 table-cell 两种媒体上下文；
+- 同一 Media Block 多媒体 Grid，且不跨 Block 重排；
+- 表格视频/图片转约 120px 高的紧凑触发卡；
+- 图片 Cinema Lightbox；
+- 重复标题的稳定 Block Anchor；
+- 1920 / 1440 / 1366 / 390 四档视口与页面级横向溢出；
+- TOC 靠左、折叠状态、Splitter 拖动/持久化/双击复位，以及正文随剩余空间流式变化；
+- 大白 Paper 已取消，章节 H2、列表、链接、表格、引用、代码和媒体组的阅读增强样式可正确应用；
+- 未识别 Block 的文本 fallback。
 
 ## 开发与接手
 

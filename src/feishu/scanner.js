@@ -156,9 +156,28 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
             ) {
               return null;
             }
+
+            const tag = node.tagName.toLowerCase();
+            const mediaNode = tag === 'source' ? node.closest('video') || node : node;
+            const isVideo = tag === 'video' || tag === 'source';
+            const width = Number(
+              isVideo
+                ? mediaNode.videoWidth || mediaNode.getAttribute?.('width') || 0
+                : mediaNode.naturalWidth || mediaNode.getAttribute?.('width') || 0
+            ) || null;
+            const height = Number(
+              isVideo
+                ? mediaNode.videoHeight || mediaNode.getAttribute?.('height') || 0
+                : mediaNode.naturalHeight || mediaNode.getAttribute?.('height') || 0
+            ) || null;
+
             return {
-              tag: node.tagName.toLowerCase(),
+              tag,
               url: node.currentSrc || node.src || node.getAttribute('src') || '',
+              width,
+              height,
+              aspectRatio: width && height ? width / height : null,
+              context: node.closest('td,th') ? 'table-cell' : 'standalone',
             };
           })
           .filter(item => item && item.url && !item.url.startsWith('data:'));
@@ -177,6 +196,7 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
                 ).forEach(node => node.remove());
 
                 return {
+                  tag: cell.tagName.toLowerCase(),
                   text: (textClone.textContent || '').replace(/\\s+/g, ' ').trim(),
                   colspan: Number(cell.getAttribute('colspan') || 1),
                   rowspan: Number(cell.getAttribute('rowspan') || 1),
@@ -216,8 +236,22 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
           url: entry.url,
           kind: entry.tag === 'video' || entry.tag === 'source' ? 'video' : 'image',
           blockIds: [],
+          contexts: [],
+          width: null,
+          height: null,
+          aspectRatio: null,
         };
         if (!current.blockIds.includes(item.id)) current.blockIds.push(item.id);
+        if (entry.context && !current.contexts.includes(entry.context)) current.contexts.push(entry.context);
+        if (entry.width && entry.height) {
+          const currentPixels = (current.width || 0) * (current.height || 0);
+          const nextPixels = entry.width * entry.height;
+          if (!current.width || nextPixels >= currentPixels) {
+            current.width = entry.width;
+            current.height = entry.height;
+            current.aspectRatio = entry.aspectRatio;
+          }
+        }
         current.url = entry.url;
         media.set(identity, current);
       }

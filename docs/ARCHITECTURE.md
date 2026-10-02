@@ -10,11 +10,13 @@
 2. Feishu Scanner performs a fresh navigation of the target URL inside that authenticated profile.
 3. The scanner walks Feishu's virtualized document repeatedly until the stable block set stops growing.
 4. Blocks are collected by `data-block-id` and hierarchy rather than global text deduplication.
-5. Media Inventory probes size/type without bulk download and ignores expired UI-only Blob resources.
+5. Media Inventory probes size/type without bulk download, records media dimensions/context, and ignores expired UI-only Blob resources.
 6. Media Policy checks configurable soft limits.
-7. Archive Writer downloads approved media and rewrites remote references to local relative paths.
-8. Markdown, sanitized HTML and `archive.json` are written under one folder in `library/`.
-9. Viewer reads `library/` only; it does not require Feishu after an archive is complete.
+7. Archive Writer downloads approved media, calculates SHA-256 content hashes, and deduplicates physical assets inside each article while preserving every logical media occurrence.
+8. Canonical media assets use content-addressed paths such as `assets/videos/sha256-<hash>.mp4`; Markdown/HTML references are rewritten only after the canonical asset is available.
+9. Markdown, adaptive sanitized HTML and manifest v2 `archive.json` are written under one folder in `library/`.
+10. Viewer wraps archived article HTML in a Reader Shell with TOC, responsive layout, media-context rendering and local lightbox behavior.
+11. Viewer reads `library/` only; it does not require Feishu after an archive is complete.
 
 ## Runtime data
 
@@ -52,9 +54,42 @@ Skipped media is never silent. `archive.json` records the reason and source URL.
 
 One named account profile maps to one Chrome user-data directory. The CLI accepts a profile name. Automatic cross-profile discovery is intentionally deferred; it can be added later without changing the archive format.
 
+## Media identity and deduplication
+
+The archive distinguishes **logical media occurrences** from **physical assets**:
+
+- each Feishu media occurrence keeps its source media id, source URL, block/context relationship and dimensions;
+- physical files are identified by SHA-256 content, not by Feishu media id or URL;
+- multiple logical occurrences may point to the same canonical physical file;
+- deduplication is intentionally scoped to one article directory. There is no global cross-article media pool in V1, so an article remains self-contained and independently movable/deletable;
+- cleanup of legacy/non-canonical media happens only after the new article HTML, Markdown and manifest are written successfully.
+
+Manifest v2 records logical/physical counts, logical bytes, physical bytes and deduplicated bytes.
+
+## Adaptive Reader
+
+The Reader is one stable shell with context-aware block rendering rather than one fixed-size article template:
+
+- desktop layout is left-anchored: the TOC sits near the page edge and a keyboard-accessible vertical splitter separates navigation from content;
+- the splitter controls TOC width (with local persistence and double-click reset); the Reader consumes the remaining safe viewport width instead of enforcing a fixed prose width;
+- prose, headings, tables and media share one left alignment baseline; blocks use the available Reader canvas instead of independently re-centering;
+- the former full white-paper surface is intentionally removed; visual hierarchy is created by local reading-enhancement components rather than one giant card;
+- standalone videos preserve source aspect ratio and are bounded by viewport height;
+- multiple media items may form a grid only inside the same source media block; media is never regrouped across block boundaries;
+- table-cell images/videos use compact fixed-height triggers and open in one reusable cinema-style lightbox so table row height remains manageable;
+- standalone local images are size-bounded and open in the same lightbox;
+- tables scroll inside their own container instead of expanding the full page;
+- heading anchors are based on stable block ids, so repeated heading text remains navigable;
+- desktop TOC can resize or collapse; the splitter is hidden and the TOC becomes a drawer on narrower screens;
+- Reader CSS provides restrained visual hierarchy for headings, lists, links, tables, quotes, inline/code blocks and media groups while keeping document structure unchanged;
+- unknown/future blocks use a conservative text/media fallback rather than being dropped silently;
+- archived article HTML remains portable and readable without the Viewer shell.
+
 ## Library and external note tools
 
 `library/` is the single source of truth for saved notes. The project does not maintain an Obsidian copy or store an Obsidian path. Users may expose the same directory to an external note application using an operating-system directory link.
+
+Browser Reader CSS is a project-local runtime concern and does not depend on Obsidian CSS. Optional machine-specific visual overrides may be placed at `data/styles/reader.user.css`; that file is ignored by Git and loads after the official Reader stylesheet.
 
 ## Viewer security
 

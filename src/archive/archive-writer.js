@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { Readable } = require('stream');
 const { pipeline } = require('stream/promises');
 const { renderDocument } = require('./render-document');
@@ -25,8 +26,7 @@ function findExistingArchive(libraryRoot, documentId) {
   if (!fs.existsSync(libraryRoot)) return null;
   for (const entry of fs.readdirSync(libraryRoot, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
-    const manifestPath = path.join(libraryRoot, entry.name, 'archive.json');
-    const manifest = readJson(manifestPath);
+    const manifest = readJson(path.join(libraryRoot, entry.name, 'archive.json'));
     if (manifest?.documentId === documentId) return path.join(libraryRoot, entry.name);
   }
   return null;
@@ -45,8 +45,7 @@ function chooseArchiveDir(libraryRoot, document) {
   if (!existingManifest && fs.existsSync(interruptedAssets)) return candidate;
 
   const suffix = safeName(document.documentId).slice(0, 8);
-  candidate = path.join(libraryRoot, `${base}--${suffix}`);
-  return candidate;
+  return path.join(libraryRoot, `${base}--${suffix}`);
 }
 
 async function downloadBlob(page, url, destination) {
@@ -92,7 +91,141 @@ async function downloadRemote(context, page, url, destination) {
   await pipeline(Readable.fromWeb(response.body), fs.createWriteStream(destination));
 }
 
-async function downloadMedia({ inventory, archiveDir, context, page, archiveConfig }) {
+async function hashFile(file) {
+  const hash = crypto.createHash('sha256');
+  const stream = fs.createReadStream(file);
+  for await (const chunk of stream) hash.update(chunk);
+  return hash.digest('hex');
+}
+
+function isExistingMediaUsable(file, expectedSize) {
+  if (!file || !fs.existsSync(file)) return false;
+  const stat = fs.statSync(file);
+  if (!stat.isFile() || stat.size <= 0) return false;
+  return expectedSize == null || stat.size === expectedSize;
+}
+
+function tryLinkOrCopy(source, destination) {
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  if (fs.existsSync(destination)) return;
+  try {
+    fs.linkSync(source, destination);
+  } catch {
+    fs.copyFileSync(source, destination);
+  }
+}
+
+function existingMediaFor(item, manifest) {
+  const media = Array.isArray(manifest?.media) ? manifest.media : [];
+  return media.find(entry => entry.id === item.id) ||
+    media.find(entry => entry.sourceUrl === item.url) ||
+    null;
+}
+
+async function materializeMedia({
+  item,
+  archiveDir,
+  context,
+  page,
+  existingManifest,
+  ownerByHash,
+  obsoletePaths,
+}) {
+  const oldEntry = existingMediaFor(item, existingManifest);
+  const candidateRelatives = [...new Set([
+    oldEntry?.localRelativePath,
+    item.localRelativePath,
+  ].filter(Boolean))];
+
+  let sourcePath = null;
+  for (const relative of candidateRelatives) {
+    const candidate = path.join(archiveDir, relative);
+    if (isExistingMediaUsable(candidate, item.size)) {
+      sourcePath = candidate;
+      break;
+    }
+  }
+
+  let stagingPath = null;
+  if (!sourcePath) {
+    const stagingDir = path.join(
+      archiveDir,
+      'assets',
+      item.kind === 'video' ? 'videos' : 'images',
+      '.staging'
+    );
+    fs.mkdirSync(stagingDir, { recursive: true });
+    stagingPath = path.join(
+      stagingDir,
+      `${item.id}-${process.pid}-${Date.now()}${item.extension}`
+    );
+
+    if (item.url.startsWith('blob:')) {
+      await downloadBlob(page, item.url, stagingPath);
+    } else if (/^https?:/i.test(item.url)) {
+      await downloadRemote(context, page, item.url, stagingPath);
+    } else {
+      throw new Error('Unsupported media URL scheme.');
+    }
+    sourcePath = stagingPath;
+  }
+
+  const actualSize = fs.statSync(sourcePath).size;
+  const contentHash = await hashFile(sourcePath);
+  const dedupeKey = `${item.kind}:${contentHash}`;
+  const owner = ownerByHash.get(dedupeKey) || null;
+  const kindDir = item.kind === 'video' ? 'videos' : 'images';
+  const canonicalRelativePath = owner?.localRelativePath ||
+    `assets/${kindDir}/sha256-${contentHash}${item.extension}`;
+  const canonicalPath = path.join(archiveDir, canonicalRelativePath);
+
+  if (!fs.existsSync(canonicalPath)) {
+    tryLinkOrCopy(sourcePath, canonicalPath);
+  } else {
+    const canonicalStat = fs.statSync(canonicalPath);
+    if (canonicalStat.size !== actualSize) {
+      const existingHash = await hashFile(canonicalPath);
+      if (existingHash !== contentHash) {
+        throw new Error(`Canonical media hash collision or corruption: ${canonicalRelativePath}`);
+      }
+    }
+  }
+
+  if (!owner) {
+    ownerByHash.set(dedupeKey, {
+      id: item.id,
+      localRelativePath: canonicalRelativePath,
+    });
+  }
+
+  item.contentHash = contentHash;
+  item.localRelativePath = canonicalRelativePath;
+  item.actualSize = actualSize;
+  item.duplicateOf = owner?.id || null;
+  item.status = 'downloaded';
+
+  for (const relative of candidateRelatives) {
+    const oldPath = path.join(archiveDir, relative);
+    if (path.resolve(oldPath) !== path.resolve(canonicalPath) && fs.existsSync(oldPath)) {
+      obsoletePaths.add(oldPath);
+    }
+  }
+  if (stagingPath && path.resolve(stagingPath) !== path.resolve(canonicalPath) && fs.existsSync(stagingPath)) {
+    obsoletePaths.add(stagingPath);
+  }
+}
+
+async function downloadMedia({
+  inventory,
+  archiveDir,
+  context,
+  page,
+  archiveConfig,
+  existingManifest,
+}) {
+  const ownerByHash = new Map();
+  const obsoletePaths = new Set();
+
   for (const item of inventory) {
     const allowed =
       (item.kind === 'video' && archiveConfig.downloadVideos !== false) ||
@@ -103,36 +236,47 @@ async function downloadMedia({ inventory, archiveDir, context, page, archiveConf
       continue;
     }
 
-    const destination = path.join(archiveDir, item.localRelativePath);
-    fs.mkdirSync(path.dirname(destination), { recursive: true });
-
-    if (fs.existsSync(destination) && fs.statSync(destination).size > 0) {
-      item.status = 'downloaded';
-      item.actualSize = fs.statSync(destination).size;
-      continue;
-    }
-
     try {
-      if (item.url.startsWith('blob:')) {
-        await downloadBlob(page, item.url, destination);
-      } else if (/^https?:/i.test(item.url)) {
-        await downloadRemote(context, page, item.url, destination);
-      } else {
-        throw new Error('Unsupported media URL scheme.');
-      }
-      item.status = 'downloaded';
-      item.actualSize = fs.statSync(destination).size;
+      await materializeMedia({
+        item,
+        archiveDir,
+        context,
+        page,
+        existingManifest,
+        ownerByHash,
+        obsoletePaths,
+      });
     } catch (error) {
       item.status = 'failed';
       item.error = error.message;
     }
   }
+
+  return { obsoletePaths };
 }
 
 function archiveStatus(inventory, pendingConfirmation = false) {
   if (pendingConfirmation) return 'pending_confirmation';
   const incomplete = inventory.some(item => item.status !== 'downloaded');
   return incomplete ? 'partial' : 'complete';
+}
+
+function storageSummary(inventory) {
+  const downloaded = inventory.filter(item => item.status === 'downloaded');
+  const logicalBytes = downloaded.reduce((sum, item) => sum + (item.actualSize || 0), 0);
+  const unique = new Map();
+  for (const item of downloaded) {
+    if (!item.localRelativePath || unique.has(item.localRelativePath)) continue;
+    unique.set(item.localRelativePath, item.actualSize || 0);
+  }
+  const physicalBytes = [...unique.values()].reduce((sum, value) => sum + value, 0);
+  return {
+    logicalMediaCount: downloaded.length,
+    physicalAssetCount: unique.size,
+    logicalBytes,
+    physicalBytes,
+    deduplicatedBytes: Math.max(0, logicalBytes - physicalBytes),
+  };
 }
 
 function writeArchiveFiles({ archiveDir, document, inventory, policy, pendingConfirmation }) {
@@ -146,7 +290,7 @@ function writeArchiveFiles({ archiveDir, document, inventory, policy, pendingCon
   fs.writeFileSync(path.join(archiveDir, 'article.html'), rendered.html, 'utf8');
 
   const manifest = {
-    version: 1,
+    version: 2,
     documentId: document.documentId,
     title: document.title,
     sourceUrl: document.sourceUrl,
@@ -156,6 +300,7 @@ function writeArchiveFiles({ archiveDir, document, inventory, policy, pendingCon
     htmlFile: 'article.html',
     scan: document.scan || null,
     policy,
+    storage: storageSummary(inventory),
     media: inventory.map(item => ({
       id: item.id,
       kind: item.kind,
@@ -167,11 +312,37 @@ function writeArchiveFiles({ archiveDir, document, inventory, policy, pendingCon
       status: item.status,
       error: item.error || item.probeError || null,
       blockIds: item.blockIds,
+      contexts: item.contexts || [],
+      width: item.width ?? null,
+      height: item.height ?? null,
+      aspectRatio: item.aspectRatio ?? null,
+      contentHash: item.contentHash || null,
+      duplicateOf: item.duplicateOf || null,
     })),
   };
 
   fs.writeFileSync(path.join(archiveDir, 'archive.json'), JSON.stringify(manifest, null, 2), 'utf8');
   return { status, markdownName, manifest };
+}
+
+function cleanupObsoleteMedia({ archiveDir, obsoletePaths, inventory }) {
+  const referenced = new Set(
+    inventory
+      .filter(item => item.status === 'downloaded' && item.localRelativePath)
+      .map(item => path.resolve(archiveDir, item.localRelativePath))
+  );
+  const assetsRoot = path.resolve(archiveDir, 'assets') + path.sep;
+
+  for (const candidate of obsoletePaths) {
+    const resolved = path.resolve(candidate);
+    if (!resolved.startsWith(assetsRoot)) continue;
+    if (referenced.has(resolved)) continue;
+    try {
+      if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) fs.unlinkSync(resolved);
+    } catch {
+      // Cleanup failure must not invalidate a successfully written archive.
+    }
+  }
 }
 
 async function createArchive({
@@ -186,13 +357,12 @@ async function createArchive({
 }) {
   fs.mkdirSync(libraryRoot, { recursive: true });
   const archiveDir = chooseArchiveDir(libraryRoot, document);
+  const existingManifest = readJson(path.join(archiveDir, 'archive.json'));
 
   if (policy.warnings.length && !confirmLarge) {
-    const existingManifest = readJson(path.join(archiveDir, 'archive.json'));
-
     if (existingManifest?.status === 'complete') {
       const preflight = {
-        version: 1,
+        version: 2,
         documentId: document.documentId,
         title: document.title,
         checkedAt: new Date().toISOString(),
@@ -205,6 +375,10 @@ async function createArchive({
           expectedSize: item.size,
           contentType: item.contentType,
           probeError: item.probeError || null,
+          contexts: item.contexts || [],
+          width: item.width ?? null,
+          height: item.height ?? null,
+          aspectRatio: item.aspectRatio ?? null,
         })),
       };
       fs.writeFileSync(path.join(archiveDir, 'preflight.json'), JSON.stringify(preflight, null, 2), 'utf8');
@@ -227,7 +401,15 @@ async function createArchive({
     return { archiveDir, ...result, warningsRequireConfirmation: true };
   }
 
-  await downloadMedia({ inventory, archiveDir, context, page, archiveConfig });
+  const { obsoletePaths } = await downloadMedia({
+    inventory,
+    archiveDir,
+    context,
+    page,
+    archiveConfig,
+    existingManifest,
+  });
+
   const result = writeArchiveFiles({
     archiveDir,
     document,
@@ -235,6 +417,8 @@ async function createArchive({
     policy,
     pendingConfirmation: false,
   });
+
+  cleanupObsoleteMedia({ archiveDir, obsoletePaths, inventory });
 
   const preflightPath = path.join(archiveDir, 'preflight.json');
   if (fs.existsSync(preflightPath)) fs.unlinkSync(preflightPath);
@@ -245,4 +429,5 @@ async function createArchive({
 module.exports = {
   createArchive,
   safeName,
+  storageSummary,
 };

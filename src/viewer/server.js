@@ -2,12 +2,24 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+const VIEWER_ASSET_ROOT = path.join(__dirname, 'assets');
+const USER_STYLE_FILE = path.resolve(__dirname, '..', '..', 'data', 'styles', 'reader.user.css');
+
 function readJson(file) {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch {
     return null;
   }
+}
+
+function uniquePhysicalBytes(media) {
+  const unique = new Map();
+  for (const item of media || []) {
+    if (item.status !== 'downloaded' || !item.localRelativePath) continue;
+    if (!unique.has(item.localRelativePath)) unique.set(item.localRelativePath, item.actualSize || 0);
+  }
+  return [...unique.values()].reduce((sum, value) => sum + value, 0);
 }
 
 function listArchives(libraryRoot) {
@@ -28,7 +40,9 @@ function listArchives(libraryRoot) {
       status: manifest.status || 'unknown',
       mediaCount: media.length,
       localMediaCount: media.filter(item => item.status === 'downloaded').length,
-      totalBytes: media.reduce((sum, item) => sum + (item.actualSize || 0), 0),
+      totalBytes: manifest.storage?.physicalBytes ?? uniquePhysicalBytes(media),
+      logicalBytes: manifest.storage?.logicalBytes ?? media.reduce((sum, item) => sum + (item.actualSize || 0), 0),
+      deduplicatedBytes: manifest.storage?.deduplicatedBytes ?? 0,
     });
   }
 
@@ -59,12 +73,16 @@ function formatBytes(bytes) {
 function renderIndex(items) {
   const cards = items.map(item => {
     const statusClass = item.status === 'complete' ? 'complete' : item.status === 'partial' ? 'partial' : 'pending';
+    const saved = item.deduplicatedBytes > 0
+      ? `<span>去重节省 ${formatBytes(item.deduplicatedBytes)}</span>`
+      : '';
     return `<a class="card" href="/note/${encodeURIComponent(item.folder)}/">
       <div class="title">${escapeHtml(item.title)}</div>
       <div class="meta">
         <span class="status ${statusClass}">${escapeHtml(item.status)}</span>
         <span>${item.localMediaCount}/${item.mediaCount} 媒体</span>
         <span>${formatBytes(item.totalBytes)}</span>
+        ${saved}
       </div>
       <div class="date">${escapeHtml(item.savedAt)}</div>
     </a>`;
@@ -98,6 +116,98 @@ h1{font-size:30px;margin:0}p{margin:6px 0 0;color:#9aa0a6}
 <header><div><h1>feishu-notes</h1><p>本地飞书笔记归档</p></div><div>${items.length} 篇</div></header>
 ${items.length ? `<section class="grid">${cards}</section>` : '<div class="empty">library 里还没有归档文章。</div>'}
 </main>
+</body>
+</html>`;
+}
+
+function extractArticle(html) {
+  const article = String(html).match(/<article\b[^>]*data-reader-article[^>]*>[\s\S]*?<\/article>/i);
+  if (article) return article[0];
+
+  const body = String(html).match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  return body ? body[1] : html;
+}
+
+function renderReader({ manifest, folder, articleHtml, hasUserStyle = false }) {
+  const media = Array.isArray(manifest.media) ? manifest.media : [];
+  const videoCount = media.filter(item => item.kind === 'video').length;
+  const imageCount = media.filter(item => item.kind === 'image').length;
+  const physicalBytes = manifest.storage?.physicalBytes ?? uniquePhysicalBytes(media);
+  const deduplicatedBytes = manifest.storage?.deduplicatedBytes ?? 0;
+  const basePath = `/library/${encodeURIComponent(folder)}/`;
+  const statusClass = manifest.status === 'complete' ? 'complete' : 'partial';
+  const article = extractArticle(articleHtml);
+
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<base href="${basePath}">
+<title>${escapeHtml(manifest.title || folder)} · feishu-notes</title>
+<link rel="stylesheet" href="/_viewer/reader.css">
+${hasUserStyle ? '<link rel="stylesheet" href="/_viewer/reader.user.css">' : ''}
+<script src="/_viewer/reader.js" defer></script>
+</head>
+<body>
+<header class="reader-topbar">
+  <a class="reader-back" href="/"><span aria-hidden="true">←</span><span>笔记库</span></a>
+  <button class="reader-action reader-toc-toggle" type="button" data-toc-toggle>目录</button>
+  <div class="reader-titlebar">
+    <div class="reader-titlebar-title">${escapeHtml(manifest.title || folder)}</div>
+    <div class="reader-titlebar-meta">
+      <span class="reader-status ${statusClass}">${escapeHtml(manifest.status || 'unknown')}</span>
+      <span>${videoCount} 视频 · ${imageCount} 图片</span>
+      <span>${formatBytes(physicalBytes)}</span>
+      ${deduplicatedBytes ? `<span>去重节省 ${formatBytes(deduplicatedBytes)}</span>` : ''}
+    </div>
+  </div>
+  <div class="reader-toolbar">
+    ${manifest.sourceUrl ? `<a class="reader-action" href="${escapeHtml(manifest.sourceUrl)}" target="_blank" rel="noreferrer">原文</a>` : ''}
+    <button class="reader-action" type="button" data-theme-toggle aria-label="切换主题">系统</button>
+  </div>
+  <div class="reader-progress"><span data-reader-progress></span></div>
+</header>
+
+<div class="reader-layout">
+  <aside class="reader-toc" data-reader-toc>
+    <div class="reader-toc-head">
+      <div class="reader-toc-title">目录</div>
+      <button class="reader-toc-collapse" type="button" data-toc-collapse aria-label="折叠目录" title="折叠目录">‹</button>
+    </div>
+    <nav class="reader-toc-list" data-reader-toc-list aria-label="文章目录"></nav>
+  </aside>
+  <div
+    class="reader-splitter"
+    data-reader-splitter
+    role="separator"
+    aria-orientation="vertical"
+    aria-label="调整目录与正文宽度"
+    aria-valuemin="160"
+    aria-valuemax="720"
+    aria-valuenow="208"
+    tabindex="0"
+    title="拖动调整目录宽度；双击恢复默认"
+  ></div>
+  <main class="reader-main">
+    <div class="reader-paper">
+      <div class="reader-content">
+        ${article}
+      </div>
+    </div>
+  </main>
+</div>
+
+<dialog class="reader-dialog" data-media-dialog>
+  <div class="reader-dialog-bar">
+    <span class="reader-dialog-title" aria-hidden="true">媒体预览</span>
+    <button class="reader-dialog-close" type="button" data-dialog-close aria-label="关闭媒体预览">关闭</button>
+  </div>
+  <div class="reader-dialog-stage">
+    <video controls playsinline preload="metadata" hidden></video>
+    <img alt="" hidden>
+  </div>
+</dialog>
 </body>
 </html>`;
 }
@@ -158,14 +268,41 @@ function serveFile(req, res, file) {
   fs.createReadStream(file).pipe(res);
 }
 
+function serveViewerAsset(req, res, name) {
+  let file = null;
+
+  if (name === 'reader.user.css') {
+    file = USER_STYLE_FILE;
+  } else if (['reader.css', 'reader.js'].includes(name)) {
+    file = path.join(VIEWER_ASSET_ROOT, name);
+  }
+
+  if (!file || !fs.existsSync(file)) {
+    res.writeHead(404);
+    res.end('Not found');
+    return;
+  }
+
+  serveFile(req, res, file);
+}
+
 function startViewer({ libraryRoot, host = '127.0.0.1', port = 4173 }) {
   const server = http.createServer((req, res) => {
     try {
       const url = new URL(req.url, `http://${host}:${port}`);
+
       if (url.pathname === '/') {
         const html = renderIndex(listArchives(libraryRoot));
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': Buffer.byteLength(html) });
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Content-Length': Buffer.byteLength(html),
+        });
         res.end(html);
+        return;
+      }
+
+      if (url.pathname.startsWith('/_viewer/')) {
+        serveViewerAsset(req, res, path.basename(url.pathname));
         return;
       }
 
@@ -173,12 +310,34 @@ function startViewer({ libraryRoot, host = '127.0.0.1', port = 4173 }) {
         const folder = decodeURIComponent(url.pathname.slice('/note/'.length).replace(/\/$/, ''));
         const dir = path.resolve(libraryRoot, folder);
         if (!isInside(path.resolve(libraryRoot), dir)) throw new Error('Invalid archive path.');
+
         const manifest = readJson(path.join(dir, 'archive.json'));
         if (!manifest) {
-          res.writeHead(404); res.end('Not found'); return;
+          res.writeHead(404);
+          res.end('Not found');
+          return;
         }
-        res.writeHead(302, { Location: `/library/${encodeURIComponent(folder)}/${encodeURIComponent(manifest.htmlFile || 'article.html')}` });
-        res.end();
+
+        const articleFile = path.join(dir, manifest.htmlFile || 'article.html');
+        if (!fs.existsSync(articleFile)) {
+          res.writeHead(404);
+          res.end('Article HTML is missing');
+          return;
+        }
+
+        const html = renderReader({
+          manifest,
+          folder,
+          articleHtml: fs.readFileSync(articleFile, 'utf8'),
+          hasUserStyle: fs.existsSync(USER_STYLE_FILE),
+        });
+
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Content-Length': Buffer.byteLength(html),
+          'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; base-uri 'self'; object-src 'none'",
+        });
+        res.end(html);
         return;
       }
 
@@ -187,7 +346,9 @@ function startViewer({ libraryRoot, host = '127.0.0.1', port = 4173 }) {
         const decoded = relativeUrl.split('/').map(decodeURIComponent).join(path.sep);
         const file = path.resolve(libraryRoot, decoded);
         if (!isInside(path.resolve(libraryRoot), file) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
-          res.writeHead(404); res.end('Not found'); return;
+          res.writeHead(404);
+          res.end('Not found');
+          return;
         }
         serveFile(req, res, file);
         return;
@@ -203,8 +364,11 @@ function startViewer({ libraryRoot, host = '127.0.0.1', port = 4173 }) {
 
   return new Promise((resolve, reject) => {
     server.once('error', reject);
-    server.listen(port, host, () => resolve({ server, host, port }));
+    server.listen(port, host, () => {
+      const address = server.address();
+      resolve({ server, host, port: typeof address === 'object' && address ? address.port : port });
+    });
   });
 }
 
-module.exports = { startViewer, listArchives };
+module.exports = { startViewer, listArchives, renderReader };

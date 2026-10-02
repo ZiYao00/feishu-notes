@@ -52,6 +52,10 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Record failed/skipped media explicitly in `archive.json`.
 - A previously `complete` archive must not be downgraded just because a later preflight needs confirmation.
 - Complete archives must use local relative media paths and should not depend on Feishu CDN/blob URLs.
+- Media content deduplication is per-article and SHA-256 based. Never deduplicate solely by file size, filename, source URL, or Feishu media id.
+- Physical deduplication must preserve every logical media occurrence in the article. Multiple logical entries may intentionally point to one canonical asset.
+- Canonical asset cleanup is allowed only after the replacement Markdown/HTML/manifest has been written successfully.
+- Do not introduce a cross-article/global media pool without a separate architecture decision.
 
 ## Viewer/service rules
 
@@ -59,6 +63,18 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Viewer reads `library/`; it must not need Feishu to render a complete archive.
 - Do not preserve/execute source-page scripts in offline HTML.
 - Local video must retain byte-range support.
+- Reader rendering must respect media context: standalone media and table-cell media are different layout cases.
+- Standalone video must preserve source aspect ratio with viewport bounds; table-cell media must remain compact and must not expand table rows into full-size players.
+- Multiple media items may form a grid only when they belong to the same source media block. Never regroup media across block boundaries.
+- Local images are size-bounded in the Reader and may open in the shared cinema lightbox.
+- Wide tables must scroll inside their own container and must not create page-level horizontal overflow.
+- Desktop Reader width is user-controlled through the TOC/content splitter; do not reintroduce a hard-coded prose width such as 760px.
+- Splitter behavior must remain keyboard accessible, locally persistent, double-click resettable, and disabled in drawer/mobile layout.
+- Reading-enhancement CSS may style headings, lists, links, tables, quotes, code and media groups, but must not alter source block order or semantics.
+- Unknown/future blocks must degrade conservatively: preserve available text or media instead of disappearing silently.
+- Heading navigation must use stable block ids rather than heading text so duplicate headings remain addressable.
+- Browser Reader CSS is independent from Obsidian CSS. Do not copy or runtime-link external Obsidian snippets into the Viewer.
+- Optional `data/styles/reader.user.css` is a machine-local visual override only; keep it Git-ignored and do not rely on it for functional DOM contracts.
 - `service.bat stop` must verify process ownership before killing a PID; never kill arbitrary processes solely because they use port 4173.
 
 ## Required validation
@@ -74,12 +90,12 @@ For scanner/archive changes:
 
 For Viewer/service changes:
 
-- `service.bat status`
-- `service.bat start`
+- `npm run verify:reader`
+- Use `service.bat restart` after the repair so the running Viewer picks up the latest code.
 - GET `http://127.0.0.1:4173/` returns HTTP 200.
-- `service.bat stop`
-- Final status is stopped.
 - Local MP4 Range requests should return HTTP 206 when testing Viewer behavior.
+- Final service status should be `running` after a repair/validation cycle so the user can immediately test the result.
+- Do not stop the Viewer at the end unless the user explicitly asks for it to be stopped.
 
 ## Safety
 
