@@ -1,0 +1,20 @@
+{
+  "name": "feishu-notes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Feishu note archiver and offline reader",
+  "main": "src/cli.js",
+  "type": "commonjs",
+  "scripts": {
+    "capture": "node src/cli.js capture",
+    "serve": "node src/cli.js serve",
+    "cleanup": "node src/cli.js cleanup",
+    "check": "node src/cli.js check"
+  },
+  "dependencies": {
+    "playwright-core": "^1.63.0",
+    "sanitize-html": "^2.17.0",
+    "turndown": "^7.2.1",
+    "turndown-plugin-gfm": "^1.0.2"
+  }
+}

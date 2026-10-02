@@ -1,0 +1,26 @@
+node_modules/
+
+# Local configuration and secrets
+config/local.json
+secrets/credentials.local.json
+
+# Browser/session/runtime data
+data/profiles/**
+!data/profiles/.gitkeep
+data/cache/**
+!data/cache/.gitkeep
+data/state/**
+!data/state/.gitkeep
+data/tmp/**
+!data/tmp/.gitkeep
+data/logs/**
+!data/logs/.gitkeep
+
+# Offline library is user data, not source code
+library/**
+!library/.gitkeep
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.log

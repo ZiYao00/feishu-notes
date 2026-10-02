@@ -1,0 +1,25 @@
+{
+  "browser": {
+    "chromePath": "auto",
+    "profileRoot": "./data/profiles",
+    "diskCacheMB": 64,
+    "mediaCacheMB": 64,
+    "profileWarnMB": 500
+  },
+  "archive": {
+    "libraryRoot": "./library",
+    "downloadImages": true,
+    "downloadVideos": true,
+    "downloadFiles": true
+  },
+  "mediaLimits": {
+    "warnSingleFileMB": 300,
+    "warnTotalMB": 1024,
+    "warnFileCount": 40,
+    "warnUnknownSize": true
+  },
+  "viewer": {
+    "host": "127.0.0.1",
+    "port": 4173
+  }
+}
