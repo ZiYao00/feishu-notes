@@ -37,7 +37,14 @@
 
   const maxTocWidth = () => {
     if (innerWidth < 1200) return TOC_DEFAULT;
-    return Math.max(TOC_MIN, Math.min(TOC_ABSOLUTE_MAX, innerWidth - 560));
+    const styles = getComputedStyle(root);
+    const pageGutter = parseFloat(styles.getPropertyValue('--reader-page-gutter')) || 18;
+    const contentGutter = parseFloat(styles.getPropertyValue('--reader-content-gutter')) || 80;
+    const splitterWidth = parseFloat(styles.getPropertyValue('--reader-splitter-width')) || 12;
+    const minimumReadableContent = 640;
+    const availableForToc =
+      innerWidth - (pageGutter * 2) - splitterWidth - (contentGutter * 2) - minimumReadableContent;
+    return Math.max(TOC_MIN, Math.min(TOC_ABSOLUTE_MAX, availableForToc));
   };
 
   const clampTocWidth = value => Math.round(Math.max(TOC_MIN, Math.min(maxTocWidth(), Number(value) || TOC_DEFAULT)));
@@ -160,6 +167,13 @@
     headings.forEach(heading => observer.observe(heading));
   }
 
+  const cleanBlockText = block =>
+    (block?.innerText || '').replace(/\u200b/g, '').replace(/\s+/g, ' ').trim();
+
+  document.querySelectorAll('.reader-block--text').forEach(block => {
+    if (!cleanBlockText(block)) block.classList.add('is-empty-block');
+  });
+
   const mediaBlocks = [...document.querySelectorAll('.reader-block--media')];
   for (const block of mediaBlocks) {
     const items = [...block.querySelectorAll(':scope > .reader-media--standalone')];
@@ -174,6 +188,155 @@
     if (orientations.every(value => value === 'portrait')) block.classList.add('is-portrait-grid');
     else block.classList.add('is-wide-grid');
   }
+
+  const labelValueText = block => {
+    if (block?.classList.contains('reader-block--list')) {
+      return (block.querySelector('.reader-list-content')?.textContent || cleanBlockText(block)).trim();
+    }
+    return cleanBlockText(block).replace(/^[•·●◦▪-]\s*/, '');
+  };
+
+  const enhanceKeyValueBlock = block => {
+    if (!block?.matches('.reader-block--text,.reader-block--list')) return false;
+    if (block.querySelector('a, img, video, table')) return false;
+    const text = labelValueText(block);
+    const match =
+      text.match(/^([^：:]{1,12})[：:]\s*(.+)$/) ||
+      text.match(/^(代表素材|素材)\s+(.+)$/);
+    if (!match) return false;
+
+    const key = match[1].trim();
+    const value = match[2].trim();
+    block.classList.add('reader-kv-row');
+    if (/^[「『“"]/.test(value) || /完整原文|原文|Hook/i.test(key)) block.classList.add('is-quote-row');
+    if (/为什么强|核心结论|关键结论|结论/.test(key)) block.classList.add('is-insight-row');
+
+    const keyNode = document.createElement('div');
+    keyNode.className = 'reader-kv-key';
+    keyNode.textContent = key;
+
+    const valueNode = document.createElement('div');
+    valueNode.className = 'reader-kv-value';
+
+    if (/(机制|标签|关键词)/.test(key) && /[＋+]/.test(value)) {
+      const chips = document.createElement('div');
+      chips.className = 'reader-chip-list';
+      for (const part of value.split(/[＋+]/).map(item => item.trim()).filter(Boolean)) {
+        const chip = document.createElement('span');
+        chip.className = 'reader-chip';
+        chip.textContent = part;
+        chips.appendChild(chip);
+      }
+      valueNode.appendChild(chips);
+    } else {
+      valueNode.textContent = value;
+    }
+
+    block.replaceChildren(keyNode, valueNode);
+    return true;
+  };
+
+  const h3Blocks = [...document.querySelectorAll('.reader-block--heading')]
+    .filter(block => block.querySelector('h3'));
+
+  for (const h3Block of h3Blocks) {
+    const chunks = [];
+    let cursor = h3Block.nextElementSibling;
+
+    while (cursor && !cursor.querySelector('h2,h3')) {
+      if (cursor.querySelector('h4')) {
+        const chunk = [cursor];
+        let next = cursor.nextElementSibling;
+        while (next && !next.querySelector('h2,h3,h4')) {
+          chunk.push(next);
+          next = next.nextElementSibling;
+        }
+        chunks.push(chunk);
+        cursor = next;
+      } else {
+        cursor = cursor.nextElementSibling;
+      }
+    }
+
+    if (chunks.length < 3) continue;
+    const structuredCount = chunks.filter(chunk =>
+      chunk.filter(block =>
+        block.matches('.reader-block--text,.reader-block--list') &&
+        (
+          /^([^：:]{1,12})[：:]\s*(.+)$/.test(labelValueText(block)) ||
+          /^(代表素材|素材)\s+(.+)$/.test(labelValueText(block))
+        )
+      ).length >= 2
+    ).length;
+    if (structuredCount < Math.ceil(chunks.length / 2)) continue;
+
+    chunks.forEach((chunk, index) => {
+      const first = chunk[0];
+      if (!first?.parentElement) return;
+
+      const wrapper = document.createElement('section');
+      wrapper.className = 'reader-case-study';
+      wrapper.dataset.caseIndex = String(index + 1).padStart(2, '0');
+      first.parentElement.insertBefore(wrapper, first);
+
+      const bodyNode = document.createElement('div');
+      bodyNode.className = 'reader-case-body';
+      const details = document.createElement('div');
+      details.className = 'reader-case-details';
+      const media = document.createElement('div');
+      media.className = 'reader-case-media';
+
+      wrapper.appendChild(first);
+
+      for (const block of chunk.slice(1)) {
+        const attachedMedia = [...block.querySelectorAll(':scope > .reader-media--standalone')];
+        attachedMedia.forEach(item => media.appendChild(item));
+
+        if (block.classList.contains('reader-block--media')) {
+          block.remove();
+          continue;
+        }
+
+        enhanceKeyValueBlock(block);
+        details.appendChild(block);
+      }
+
+      bodyNode.appendChild(details);
+      if (media.childElementCount) bodyNode.appendChild(media);
+      else bodyNode.classList.add('is-text-only');
+      wrapper.appendChild(bodyNode);
+    });
+  }
+
+  document.querySelectorAll('.reader-table-wrap table').forEach(table => {
+    const rows = [...table.querySelectorAll('tbody tr')];
+    if (!rows.length) return;
+    const maxColumns = Math.max(...rows.map(row => row.children.length));
+
+    for (let column = 0; column < maxColumns; column += 1) {
+      const cells = rows
+        .map(row => row.children[column])
+        .filter(Boolean);
+      const percentages = cells
+        .map(cell => {
+          const match = cell.textContent.trim().match(/(?:约\s*)?(\d+(?:\.\d+)?)%/);
+          return match ? { cell, value: Math.min(100, Number(match[1])) } : null;
+        })
+        .filter(Boolean);
+
+      if (percentages.length >= Math.max(2, Math.ceil(cells.length * 0.6))) {
+        percentages.forEach(({ cell, value }) => {
+          cell.classList.add('reader-percent-cell');
+          cell.style.setProperty('--reader-percent', value + '%');
+        });
+      }
+    }
+
+    rows.forEach(row => {
+      const first = row.children[0]?.textContent.trim() || '';
+      if (first.startsWith('❌')) row.classList.add('is-warning-row');
+    });
+  });
 
   const playIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg>';
 

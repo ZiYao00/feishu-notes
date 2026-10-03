@@ -84,6 +84,44 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
 
   const blocks = new Map();
   const media = new Map();
+  const visibleLength = value => String(value || '').replace(/\p{Cf}/gu, '').trim().length;
+  const mergeTableSnapshots = (previousTable, nextTable) => {
+    if (!previousTable) return nextTable;
+    if (!nextTable) return previousTable;
+
+    const rowCount = Math.max(previousTable.length, nextTable.length);
+    return Array.from({ length: rowCount }, (_, rowIndex) => {
+      const previousRow = previousTable[rowIndex] || [];
+      const nextRow = nextTable[rowIndex] || [];
+      const cellCount = Math.max(previousRow.length, nextRow.length);
+
+      return Array.from({ length: cellCount }, (_, cellIndex) => {
+        const previousCell = previousRow[cellIndex];
+        const nextCell = nextRow[cellIndex];
+        if (!previousCell) return nextCell;
+        if (!nextCell) return previousCell;
+
+        const richerText =
+          visibleLength(nextCell.text) >= visibleLength(previousCell.text)
+            ? nextCell.text
+            : previousCell.text;
+        const richerMedia =
+          (nextCell.media || []).length >= (previousCell.media || []).length
+            ? nextCell.media
+            : previousCell.media;
+
+        return {
+          ...previousCell,
+          ...nextCell,
+          text: richerText,
+          media: richerMedia,
+          isHeader: Boolean(previousCell.isHeader || nextCell.isHeader),
+          colspan: Math.max(previousCell.colspan || 1, nextCell.colspan || 1),
+          rowspan: Math.max(previousCell.rowspan || 1, nextCell.rowspan || 1),
+        };
+      }).filter(Boolean);
+    });
+  };
   const step = Math.max(450, Math.floor(initial.clientHeight * 0.72));
   let scans = 0;
   let maxHeightSeen = initial.scrollHeight;
@@ -186,24 +224,31 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
         let table = null;
 
         if (el.classList.contains('docx-table-block')) {
-          table = [...el.querySelectorAll('tr')].map(row =>
-            [...row.children]
-              .filter(cell => cell.tagName === 'TD' || cell.tagName === 'TH')
-              .map(cell => {
-                const textClone = cell.cloneNode(true);
-                textClone.querySelectorAll(
-                  '.docx-file-block, .docx-view-block, .docx-block-zero-space, .bear-virtual-renderUnit-placeholder'
-                ).forEach(node => node.remove());
+          table = [...el.querySelectorAll('tr')].map(row => {
+            const cells = [...row.children]
+              .filter(cell => cell.tagName === 'TD' || cell.tagName === 'TH');
+            const formattedHeaderRow = cells.length > 0 && cells.every(cell =>
+              Boolean(cell.querySelector(
+                'b, strong, [style*="font-weight:bold"], [style*="font-weight: bold"], [style*="font-weight:700"], [style*="font-weight: 700"]'
+              ))
+            );
 
-                return {
-                  tag: cell.tagName.toLowerCase(),
-                  text: (textClone.textContent || '').replace(/\\s+/g, ' ').trim(),
-                  colspan: Number(cell.getAttribute('colspan') || 1),
-                  rowspan: Number(cell.getAttribute('rowspan') || 1),
-                  media: mediaFrom(cell),
-                };
-              })
-          );
+            return cells.map(cell => {
+              const textClone = cell.cloneNode(true);
+              textClone.querySelectorAll(
+                '.docx-file-block, .docx-view-block, .docx-block-zero-space, .bear-virtual-renderUnit-placeholder'
+              ).forEach(node => node.remove());
+
+              return {
+                tag: cell.tagName.toLowerCase(),
+                text: (textClone.textContent || '').replace(/\s+/g, ' ').trim(),
+                isHeader: cell.tagName === 'TH' || formattedHeaderRow,
+                colspan: Number(cell.getAttribute('colspan') || 1),
+                rowspan: Number(cell.getAttribute('rowspan') || 1),
+                media: mediaFrom(cell),
+              };
+            });
+          });
         }
 
         return {
@@ -219,8 +264,17 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
 
     for (const item of snapshot) {
       const previous = blocks.get(item.id);
-      if (!previous || item.html.length > previous.html.length || item.media.length > previous.media.length) {
+      if (!previous) {
         blocks.set(item.id, item);
+      } else {
+        blocks.set(item.id, {
+          ...previous,
+          ...item,
+          text: visibleLength(item.text) >= visibleLength(previous.text) ? item.text : previous.text,
+          html: item.html.length >= previous.html.length ? item.html : previous.html,
+          media: item.media.length >= previous.media.length ? item.media : previous.media,
+          table: mergeTableSnapshots(previous.table, item.table),
+        });
       }
 
       let imageOrdinal = 0;

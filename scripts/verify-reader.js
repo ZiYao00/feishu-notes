@@ -160,6 +160,7 @@ async function main() {
       { id: '204', className: 'docx-file-block', text: '', html: '', media: [{ url: 'fixture:four-three' }], table: null },
       { id: '205', className: 'docx-file-block', text: '', html: '', media: [{ url: 'fixture:image' }], table: null },
       { id: '206', className: 'docx-future-unknown-block', text: '未来 Block 降级文本', html: '', media: [], table: null },
+      { id: '207', className: 'docx-ordered-block', text: '1.\n编号正文同行', html: '', media: [], table: null },
       {
         id: '301',
         className: 'docx-table-block',
@@ -167,6 +168,11 @@ async function main() {
         html: '',
         media: [],
         table: [
+          [
+            { tag: 'td', text: '媒体类型', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '画幅', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '参考素材', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+          ],
           [
             { tag: 'td', text: '竖屏', colspan: 1, rowspan: 1, media: [{ url: 'fixture:table-portrait' }] },
             { tag: 'td', text: '横屏', colspan: 1, rowspan: 1, media: [{ url: 'fixture:table-landscape' }] },
@@ -262,8 +268,17 @@ async function main() {
         },
         headingEnhancement: {
           borderLeftWidth: h2.borderLeftWidth,
+          borderBottomWidth: h2.borderBottomWidth,
           backgroundImage: h2.backgroundImage,
+          accentWidth: getComputedStyle(document.querySelector('.reader-content h2'), '::after').width,
         },
+        tableHeaders: [...document.querySelectorAll('.reader-table-wrap thead th')].map(cell => cell.textContent.trim()),
+        orderedRows: [...document.querySelectorAll('.reader-block--list .reader-list-item')].map(item => ({
+          marker: item.querySelector('.reader-list-marker')?.textContent.trim(),
+          content: item.querySelector('.reader-list-content')?.textContent.trim(),
+          height: Math.round(item.getBoundingClientRect().height),
+        })),
+        contentGutter: Math.round(document.querySelector('.reader-block--text').getBoundingClientRect().left - document.querySelector('.reader-main').getBoundingClientRect().left),
         pageOverflow: document.documentElement.scrollWidth > innerWidth,
       };
     });
@@ -288,8 +303,14 @@ async function main() {
     assert.ok(desktop1920.paper.backgroundColor.includes('0, 0, 0, 0'));
     assert.strictEqual(desktop1920.paper.borderTopWidth, '0px');
     assert.strictEqual(desktop1920.paper.boxShadow, 'none');
-    assert.strictEqual(desktop1920.headingEnhancement.borderLeftWidth, '4px');
-    assert.notStrictEqual(desktop1920.headingEnhancement.backgroundImage, 'none');
+    assert.strictEqual(desktop1920.headingEnhancement.borderLeftWidth, '0px');
+    assert.strictEqual(desktop1920.headingEnhancement.borderBottomWidth, '1px');
+    assert.strictEqual(desktop1920.headingEnhancement.backgroundImage, 'none');
+    assert.strictEqual(desktop1920.headingEnhancement.accentWidth, '72px');
+    assert.deepStrictEqual(desktop1920.tableHeaders, ['媒体类型', '画幅', '参考素材']);
+    assert.deepStrictEqual(desktop1920.orderedRows[0], { marker: '1.', content: '编号正文同行', height: desktop1920.orderedRows[0].height });
+    assert.ok(desktop1920.orderedRows[0].height < 60);
+    assert.ok(Math.abs(desktop1920.contentGutter - 80) <= 1);
     assert.strictEqual(desktop1920.pageOverflow, false);
 
     const splitterBox = await page.locator('[data-reader-splitter]').boundingBox();

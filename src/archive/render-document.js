@@ -25,6 +25,28 @@ function findMedia(url, inventory) {
   return inventory.find(item => item.url === url) || null;
 }
 
+function blockMediaEntries(block, inventory) {
+  const entries = [...(block.media || [])];
+  const seen = new Set(entries.map(entry => entry.url).filter(Boolean));
+  const blockId = String(block.id);
+
+  for (const item of inventory) {
+    if (!(item.blockIds || []).map(String).includes(blockId)) continue;
+    if (!item.url || seen.has(item.url)) continue;
+    seen.add(item.url);
+    entries.push({
+      tag: item.kind === 'video' ? 'video' : 'img',
+      url: item.url,
+      width: item.width ?? null,
+      height: item.height ?? null,
+      aspectRatio: item.aspectRatio ?? null,
+      context: (item.contexts || []).includes('table-cell') ? 'table-cell' : 'standalone',
+    });
+  }
+
+  return entries;
+}
+
 function orientationFor(item) {
   const ratio = Number(item?.aspectRatio) ||
     (item?.width && item?.height ? item.width / item.height : null);
@@ -222,9 +244,9 @@ function renderTableMarkdown(table, inventory) {
 function renderTableHtml(table, inventory) {
   if (!Array.isArray(table) || !table.length) return '';
 
-  const rows = table.map(row => {
+  const renderRow = (row, forceHeader = false) => {
     const cells = row.map(cell => {
-      const tag = cell.tag === 'th' ? 'th' : 'td';
+      const tag = forceHeader || cell.tag === 'th' || cell.isHeader ? 'th' : 'td';
       const attrs = [
         cell.colspan > 1 ? ` colspan="${cell.colspan}"` : '',
         cell.rowspan > 1 ? ` rowspan="${cell.rowspan}"` : '',
@@ -234,9 +256,17 @@ function renderTableHtml(table, inventory) {
       return `<${tag}${attrs}>${text}${media}</${tag}>`;
     }).join('');
     return `<tr>${cells}</tr>`;
-  }).join('');
+  };
 
-  return `<div class="reader-table-wrap"><table><tbody>${rows}</tbody></table></div>`;
+  const firstRowIsHeader = table[0].length > 0 &&
+    table[0].every(cell => cell.tag === 'th' || cell.isHeader);
+  const head = firstRowIsHeader
+    ? `<thead>${renderRow(table[0], true)}</thead>`
+    : '';
+  const bodyRows = firstRowIsHeader ? table.slice(1) : table;
+  const body = bodyRows.map(row => renderRow(row)).join('');
+
+  return `<div class="reader-table-wrap"><table>${head}<tbody>${body}</tbody></table></div>`;
 }
 
 function classifyBlock(block, level, isMediaShell) {
@@ -249,6 +279,7 @@ function classifyBlock(block, level, isMediaShell) {
 
 function renderBlock(block, inventory, turndown) {
   const normalizedText = cleanText(block.text);
+  const effectiveMedia = blockMediaEntries(block, inventory);
   if (normalizedText === '附件不支持打印') {
     return { markdown: '', html: '', type: 'empty' };
   }
@@ -266,6 +297,33 @@ function renderBlock(block, inventory, turndown) {
     };
   }
 
+  if (/docx-(ordered|bullet|unordered)-block/.test(block.className)) {
+    const lines = normalizedText
+      .split(/\r?\n/)
+      .map(line => cleanText(line))
+      .filter(Boolean);
+    const ordered = /docx-ordered-block/.test(block.className);
+    const markerPattern = ordered ? /^\d+[.．、)]$/ : /^[•·●◦▪-]$/;
+    const marker = markerPattern.test(lines[0] || '') ? lines.shift() : (ordered ? '1.' : '•');
+    const content = lines.join(' ').trim();
+
+    if (content) {
+      const listMarkdown = ordered ? `${marker} ${content}` : `- ${content}`;
+      const attachedMarkdown = markdownMedia(effectiveMedia, inventory, false);
+      const attachedHtml = htmlMedia(effectiveMedia, inventory, 'standalone').join('');
+      return {
+        markdown: [listMarkdown, ...attachedMarkdown].filter(Boolean).join('\n\n'),
+        html:
+          `<div class="reader-list-item ${ordered ? 'reader-list-item--ordered' : 'reader-list-item--bullet'}">` +
+          `<span class="reader-list-marker">${escapeHtml(marker)}</span>` +
+          `<div class="reader-list-content">${escapeHtml(content)}</div>` +
+          `</div>` +
+          attachedHtml,
+        type: 'list',
+      };
+    }
+  }
+
   if (block.table) {
     return {
       markdown: renderTableMarkdown(block.table, inventory),
@@ -274,8 +332,8 @@ function renderBlock(block, inventory, turndown) {
     };
   }
 
-  const blockMedia = markdownMedia(block.media, inventory, false);
-  const hasVideo = (block.media || []).some(entry => findMedia(entry.url, inventory)?.kind === 'video');
+  const blockMedia = markdownMedia(effectiveMedia, inventory, false);
+  const hasVideo = effectiveMedia.some(entry => findMedia(entry.url, inventory)?.kind === 'video');
   const isMediaShell =
     /docx-(file|view)-block/.test(block.className) ||
     (hasVideo && /xgplayer|preview-type-video/.test(block.html));
@@ -283,7 +341,7 @@ function renderBlock(block, inventory, turndown) {
   if (isMediaShell) {
     return {
       markdown: blockMedia.join('\n\n'),
-      html: htmlMedia(block.media, inventory, 'standalone').join('\n'),
+      html: htmlMedia(effectiveMedia, inventory, 'standalone').join('\n'),
       type: 'media',
     };
   }
@@ -305,7 +363,7 @@ function renderBlock(block, inventory, turndown) {
     if (blockMedia.length) {
       return {
         markdown: blockMedia.join('\n\n'),
-        html: htmlMedia(block.media, inventory, 'standalone').join('\n'),
+        html: htmlMedia(effectiveMedia, inventory, 'standalone').join('\n'),
         type: 'media',
       };
     }
