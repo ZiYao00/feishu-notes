@@ -86,7 +86,7 @@ Viewer：
 - 使用统一 Reader Shell + 内容上下文渲染，而不是把用户直接跳转到裸 `article.html`。
 - 长文提供 TOC、阅读进度、明暗主题、桌面 TOC 折叠和窄屏目录抽屉。
 - Desktop 在 TOC 与正文之间提供可拖动 Splitter：支持鼠标拖动、键盘左右键、双击恢复默认，并在本机记忆目录宽度。
-- Reader 正文不使用固定 760px；正文、标题、表格和媒体占用 Splitter 调整后剩余的安全空间并共享左基准线。
+- Reader 正文不使用固定 760px；桌面端采用约 880–960px 的自适应阅读列，表格和媒体等宽内容继续使用 Splitter 调整后剩余的安全空间，并共享左基准线。
 - 取消整块白色 Paper 背景；视觉层次由章节、表格、引用、代码、链接、列表和媒体组的局部 CSS 增强建立。
 - 正文视频保持原始横/竖比例并受视口高度限制。
 - 同一个 Media Block 内允许多媒体 Grid；禁止跨 Block 聚合或重排媒体。
@@ -95,7 +95,24 @@ Viewer：
 - 超宽表格只在自身容器横向滚动，不允许撑宽整个页面。
 - 对未知/未来 Block 使用保守 fallback：优先保留文本或媒体，只有真正空块才跳过。
 - 对 MP4 提供 Range 支持。
+- 首页、原始 Reader、学习版统一使用单个亮/暗切换按钮；不再提供“跟随系统”的第三状态。
 - 不执行原飞书页面中的脚本。
+
+### Explain 派生学习层
+
+Explain 是可选能力，不改变归档主流程：
+
+- 原始 Markdown / HTML / `archive.json` / `assets/` 继续作为 Source of Truth；
+- 派生教学内容只放在 `library/<article>/explain/`，不把自定义字段写回 `archive.json`；
+- Viewer 只有在 `explain/chapters/manifest.json` 存在至少一个 `ready` 且 Markdown 文件实际存在的章节时，才显示学习入口；
+- 首页以“进入学习版”为主入口、“查看原始文章”为次入口；`/explain/<folder>/` 继续作为兼容路由并直接进入第一个可读章节，不再经过 Course Map / Lesson Landing；
+- 公开内容来自 `explain/chapters/`；历史 `explain/lessons/`、Evidence Cases、ASR 与 Frame 数据属于内部素材，不进入普通导航；
+- `explain/manifest.json` 保存原文 `savedAt` 与 SHA-256 指纹，原归档更新后应提示学习版重新复核；
+- 学习版不按原报告章节顺序做简单改写，而是按“知识地图 → 学习目标 → 概念依赖 → 证据/案例 → 判断练习 → 跨品类迁移 → 复盘”重新组织；完整教学规范见 `docs/EXPLAIN-WORKFLOW.md`；
+- 视频证据统一使用归档 `contentHash` 作为身份，`media-index.json` 负责回溯逻辑媒体 ID、Block、上下文和物理文件；
+- ASR 是外部本地能力，Viewer 本身不能依赖 ASR 服务在线；
+- 关键帧只按明确时间点少量抽取，并通过 `frames.json` 保存时间戳与图片 SHA-256；
+- 完整规范见 `docs/EXPLAIN-WORKFLOW.md`。
 
 ## 3. 使用入口
 

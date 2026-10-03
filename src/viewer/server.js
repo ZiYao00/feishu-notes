@@ -1,6 +1,13 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { readExplainManifest } = require('./explain');
+const {
+  readChapterManifest,
+  getChapterSummary,
+  renderChapterReader,
+  renderThemeControl,
+} = require('./chapters');
 
 const VIEWER_ASSET_ROOT = path.join(__dirname, 'assets');
 const USER_STYLE_FILE = path.resolve(__dirname, '..', '..', 'data', 'styles', 'reader.user.css');
@@ -33,6 +40,7 @@ function listArchives(libraryRoot) {
     if (!manifest) continue;
 
     const media = Array.isArray(manifest.media) ? manifest.media : [];
+    const explain = getChapterSummary(dir, manifest);
     items.push({
       folder: entry.name,
       title: manifest.title || entry.name,
@@ -43,6 +51,7 @@ function listArchives(libraryRoot) {
       totalBytes: manifest.storage?.physicalBytes ?? uniquePhysicalBytes(media),
       logicalBytes: manifest.storage?.logicalBytes ?? media.reduce((sum, item) => sum + (item.actualSize || 0), 0),
       deduplicatedBytes: manifest.storage?.deduplicatedBytes ?? 0,
+      explain,
     });
   }
 
@@ -76,16 +85,31 @@ function renderIndex(items) {
     const saved = item.deduplicatedBytes > 0
       ? `<span>去重节省 ${formatBytes(item.deduplicatedBytes)}</span>`
       : '';
-    return `<a class="card" href="/note/${encodeURIComponent(item.folder)}/">
-      <div class="title">${escapeHtml(item.title)}</div>
-      <div class="meta">
-        <span class="status ${statusClass}">${escapeHtml(item.status)}</span>
-        <span>${item.localMediaCount}/${item.mediaCount} 媒体</span>
-        <span>${formatBytes(item.totalBytes)}</span>
-        ${saved}
+    const encodedFolder = encodeURIComponent(item.folder);
+    const explain = item.explain
+      ? `<a class="btn btn-primary" href="/explain/${encodedFolder}/">
+          <span>进入学习版</span>
+          <small>${item.explain.sourceStale ? '来源需复核' : '从导读开始'}</small>
+        </a>`
+      : '';
+
+    return `<article class="card">
+      <div class="card-main">
+        <div class="eyebrow">OFFLINE ARCHIVE</div>
+        <div class="title">${escapeHtml(item.title)}</div>
+        <div class="meta">
+          <span class="status ${statusClass}">${escapeHtml(item.status)}</span>
+          <span>${item.localMediaCount}/${item.mediaCount} 媒体</span>
+          <span>${formatBytes(item.totalBytes)}</span>
+          ${saved}
+        </div>
+        <div class="date">${escapeHtml(item.savedAt)}</div>
       </div>
-      <div class="date">${escapeHtml(item.savedAt)}</div>
-    </a>`;
+      <div class="card-actions">
+        ${explain}
+        <a class="btn btn-secondary" href="/note/${encodedFolder}/"><span>查看原始文章</span><small>Source</small></a>
+      </div>
+    </article>`;
   }).join('\n');
 
   return `<!doctype html>
@@ -94,26 +118,38 @@ function renderIndex(items) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>feishu-notes</title>
+<script src="/_viewer/theme-init.js"></script>
 <style>
-:root{color-scheme:light dark}
+:root{color-scheme:light;--bg:#f5f5f8;--surface:#fff;--surface-soft:#f7f7fa;--text:#34364a;--strong:#232437;--muted:#6c6f85;--faint:#8c8fa1;--line:#e4e5eb;--accent:#7287fd;--accent-soft:rgba(114,135,253,.10);--success:#40a02b;--success-soft:rgba(64,160,43,.09);--warning:#df8e1d;--warning-soft:rgba(223,142,29,.10);--shadow:0 10px 30px rgba(76,79,105,.07)}
+html[data-theme="dark"]{color-scheme:dark;--bg:#11111b;--surface:#1e1e2e;--surface-soft:#181825;--text:#cdd6f4;--strong:#e7eaf8;--muted:#a6adc8;--faint:#7f849c;--line:#313244;--accent:#b4befe;--accent-soft:rgba(180,190,254,.10);--success:#a6e3a1;--success-soft:rgba(166,227,161,.08);--warning:#f9e2af;--warning-soft:rgba(249,226,175,.08);--shadow:0 16px 42px rgba(0,0,0,.28)}
 *{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;background:#0d0f12;color:#e8eaed}
-main{max-width:1180px;margin:0 auto;padding:42px 28px 80px}
-header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:30px}
-h1{font-size:30px;margin:0}p{margin:6px 0 0;color:#9aa0a6}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
-.card{display:block;text-decoration:none;color:inherit;background:#171a1f;border:1px solid #262a31;border-radius:12px;padding:18px;transition:.16s ease}
-.card:hover{transform:translateY(-1px);border-color:#454b56;background:#1b1f25}
-.title{font-size:17px;font-weight:650;line-height:1.45;margin-bottom:14px}
-.meta{display:flex;gap:8px;flex-wrap:wrap;color:#aeb4bd;font-size:12px}
-.status{padding:2px 7px;border-radius:999px}.status.complete{background:#123c2b;color:#91e6b9}.status.partial{background:#4a3514;color:#ffd58c}.status.pending{background:#3d284b;color:#d9b0ef}
-.date{margin-top:12px;color:#727985;font-size:11px}
-.empty{padding:50px 0;color:#8d949f}
+body{margin:0;font:15px/1.68 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(circle at 85% -10%,var(--accent-soft),transparent 34rem),var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+main{width:min(1180px,calc(100% - 40px));margin:0 auto;padding:44px 0 84px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:28px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+h1{font-size:30px;line-height:1.2;letter-spacing:-.02em;margin:0;color:var(--strong)}p{margin:7px 0 0;color:var(--muted)}
+.count{color:var(--faint);font-size:12px}
+.header-tools{display:flex;align-items:center;gap:12px}
+.theme-toggle{width:36px;height:34px;padding:0;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--strong);cursor:pointer}
+.theme-toggle::before{content:"☾";font-size:18px;line-height:1}html[data-theme="dark"] .theme-toggle::before{content:"☀"}
+.grid{display:grid;gap:16px}
+.card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+.card-main{min-width:0}.eyebrow{margin-bottom:5px;color:var(--faint);font-size:12px;font-weight:800;letter-spacing:.09em}
+.title{font-size:18px;font-weight:720;line-height:1.45;color:var(--strong);margin-bottom:13px}
+.meta{display:flex;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.status{padding:2px 7px;border-radius:999px}.status.complete{background:var(--success-soft);color:var(--success)}.status.partial{background:var(--warning-soft);color:var(--warning)}.status.pending{background:var(--accent-soft);color:var(--accent)}
+.date{margin-top:11px;color:var(--faint);font-size:12px}
+.card-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.btn{min-width:132px;min-height:52px;display:flex;flex-direction:column;justify-content:center;gap:1px;padding:8px 13px;border:1px solid var(--line);border-radius:11px;text-decoration:none;transition:.15s ease}
+.btn span{font-size:14px;font-weight:720}.btn small{color:inherit;opacity:.72;font-size:12px;letter-spacing:.02em}
+.btn:hover{transform:translateY(-1px)}.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn-secondary{background:var(--surface-soft);color:var(--text)}.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.empty{padding:50px 0;color:var(--faint)}
+@media(max-width:720px){main{width:calc(100% - 24px);padding-top:26px}.card{grid-template-columns:1fr;gap:18px}.card-actions{justify-content:stretch}.btn{flex:1;min-width:0}}
 </style>
+<script src="/_viewer/reader.js" defer></script>
 </head>
 <body>
 <main>
-<header><div><h1>feishu-notes</h1><p>本地飞书笔记归档</p></div><div>${items.length} 篇</div></header>
+<header><div><h1>feishu-notes</h1><p>本地飞书笔记归档 · 原始资料与学习版</p></div><div class="header-tools"><button type="button" class="theme-toggle" data-theme-toggle aria-label="切换到暗色模式" title="切换到暗色模式" aria-pressed="false"></button><div class="count">${items.length} 篇</div></div></header>
 ${items.length ? `<section class="grid">${cards}</section>` : '<div class="empty">library 里还没有归档文章。</div>'}
 </main>
 </body>
@@ -145,6 +181,7 @@ function renderReader({ manifest, folder, articleHtml, hasUserStyle = false }) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <base href="${basePath}">
 <title>${escapeHtml(manifest.title || folder)} · feishu-notes</title>
+<script src="/_viewer/theme-init.js"></script>
 <link rel="stylesheet" href="/_viewer/reader.css">
 ${hasUserStyle ? '<link rel="stylesheet" href="/_viewer/reader.user.css">' : ''}
 <script src="/_viewer/reader.js" defer></script>
@@ -164,7 +201,7 @@ ${hasUserStyle ? '<link rel="stylesheet" href="/_viewer/reader.user.css">' : ''}
   </div>
   <div class="reader-toolbar">
     ${manifest.sourceUrl ? `<a class="reader-action" href="${escapeHtml(manifest.sourceUrl)}" target="_blank" rel="noreferrer">原文</a>` : ''}
-    <button class="reader-action" type="button" data-theme-toggle aria-label="切换主题">系统</button>
+    ${renderThemeControl()}
   </div>
   <div class="reader-progress"><span data-reader-progress></span></div>
 </header>
@@ -273,7 +310,7 @@ function serveViewerAsset(req, res, name) {
 
   if (name === 'reader.user.css') {
     file = USER_STYLE_FILE;
-  } else if (['reader.css', 'reader.js'].includes(name)) {
+  } else if (['reader.css', 'reader.js', 'theme-init.js'].includes(name)) {
     file = path.join(VIEWER_ASSET_ROOT, name);
   }
 
@@ -303,6 +340,52 @@ function startViewer({ libraryRoot, host = '127.0.0.1', port = 4173 }) {
 
       if (url.pathname.startsWith('/_viewer/')) {
         serveViewerAsset(req, res, path.basename(url.pathname));
+        return;
+      }
+
+      if (url.pathname.startsWith('/explain/')) {
+        const relative = url.pathname.slice('/explain/'.length).replace(/^\/+|\/+$/g, '');
+        const parts = relative ? relative.split('/').map(decodeURIComponent) : [];
+        const folder = parts[0] || '';
+        const dir = path.resolve(libraryRoot, folder);
+        if (!folder || !isInside(path.resolve(libraryRoot), dir)) throw new Error('Invalid explain path.');
+
+        if (parts.length > 1) {
+          res.writeHead(404);
+          res.end('Legacy lesson route is hidden');
+          return;
+        }
+
+        const archiveManifest = readJson(path.join(dir, 'archive.json'));
+        const explainManifest = readExplainManifest(dir);
+        const chapterManifest = readChapterManifest(dir);
+        if (!archiveManifest || !explainManifest || !chapterManifest) {
+          res.writeHead(404);
+          res.end('Explain reader not found');
+          return;
+        }
+
+        const html = renderChapterReader({
+          archiveManifest,
+          explainManifest,
+          chapterManifest,
+          folder,
+          articleDir: dir,
+          requestedChapterId: url.searchParams.get('chapter') || '',
+        });
+
+        if (!html) {
+          res.writeHead(404);
+          res.end('Explain chapter not found');
+          return;
+        }
+
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Content-Length': Buffer.byteLength(html),
+          'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; base-uri 'self'; object-src 'none'",
+        });
+        res.end(html);
         return;
       }
 

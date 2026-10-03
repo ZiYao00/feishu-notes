@@ -17,6 +17,7 @@
 9. Markdown, adaptive sanitized HTML and manifest v2 `archive.json` are written under one folder in `library/`.
 10. Viewer wraps archived article HTML in a Reader Shell with TOC, responsive layout, media-context rendering and local lightbox behavior.
 11. Viewer reads `library/` only; it does not require Feishu after an archive is complete.
+12. Optional Explain material may be added under the article's `explain/` directory. Public learning content is chapter-driven (`chapters/manifest.json` + Markdown); evidence, ASR, frames and legacy lesson drafts remain internal derived material. The Viewer exposes a single chapter Reader and never makes Explain a dependency of the canonical archive.
 
 ## Runtime data
 
@@ -71,8 +72,8 @@ Manifest v2 records logical/physical counts, logical bytes, physical bytes and d
 The Reader is one stable shell with context-aware block rendering rather than one fixed-size article template:
 
 - desktop layout is left-anchored: the TOC sits near the page edge and a keyboard-accessible vertical splitter separates navigation from content;
-- the splitter controls TOC width (with local persistence and double-click reset); the Reader consumes the remaining safe viewport width instead of enforcing a fixed prose width;
-- prose, headings, tables and media share one left alignment baseline; blocks use the available Reader canvas instead of independently re-centering;
+- the splitter controls TOC width (with local persistence and double-click reset); the remaining viewport width defines the available Reader canvas;
+- prose and headings use an adaptive reading measure (about 880–960px on desktop rather than the old hard-coded 760px), while wide tables/media may break out into the remaining Reader canvas; both layers share one left alignment baseline;
 - the former full white-paper surface is intentionally removed; visual hierarchy is created by local reading-enhancement components rather than one giant card;
 - standalone videos preserve source aspect ratio and are bounded by viewport height;
 - multiple media items may form a grid only inside the same source media block; media is never regrouped across block boundaries;

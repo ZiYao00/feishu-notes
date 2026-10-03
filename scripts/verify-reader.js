@@ -186,12 +186,13 @@ async function main() {
   const rendered = renderDocument({ document, inventory });
   fs.writeFileSync(path.join(archiveDir, 'article.html'), rendered.html, 'utf8');
   fs.writeFileSync(path.join(archiveDir, 'fixture.md'), rendered.markdown, 'utf8');
+  const fixtureSavedAt = new Date().toISOString();
   fs.writeFileSync(path.join(archiveDir, 'archive.json'), JSON.stringify({
     version: 2,
     documentId: document.documentId,
     title: document.title,
     sourceUrl: '',
-    savedAt: new Date().toISOString(),
+    savedAt: fixtureSavedAt,
     status: 'complete',
     markdownFile: 'fixture.md',
     htmlFile: 'article.html',
@@ -215,11 +216,174 @@ async function main() {
     })),
   }, null, 2), 'utf8');
 
+  const explainRoot = path.join(archiveDir, 'explain');
+  fs.mkdirSync(path.join(explainRoot, 'lessons'), { recursive: true });
+  fs.mkdirSync(path.join(explainRoot, 'evidence', 'asr'), { recursive: true });
+  fs.mkdirSync(path.join(explainRoot, 'evidence', 'frames'), { recursive: true });
+  fs.writeFileSync(path.join(explainRoot, 'manifest.json'), JSON.stringify({
+    version: 1,
+    status: 'draft',
+    title: 'Reader Fixture · 讲解专题',
+    description: 'Explain fixture',
+    source: {
+      documentId: document.documentId,
+      savedAt: fixtureSavedAt,
+    },
+    evidence: {
+      casesFile: 'evidence/cases.json',
+      asrDir: 'evidence/asr',
+      framesDir: 'evidence/frames',
+    },
+    lessons: [
+      {
+        id: '00-overview',
+        title: '先看懂系统',
+        summary: '验证 Explain Landing 与 Lesson Reader。',
+        file: 'lessons/00-overview.html',
+        status: 'ready',
+        caseCount: 1,
+      },
+    ],
+  }, null, 2), 'utf8');
+  fs.writeFileSync(path.join(explainRoot, 'evidence', 'cases.json'), JSON.stringify({
+    version: 1,
+    identity: 'contentHash',
+    cases: [{ id: 'case-001', contentHash: 'fixture' }],
+  }, null, 2), 'utf8');
+  fs.writeFileSync(path.join(explainRoot, 'lessons', '00-overview.html'), `
+    <article class="reader-article" data-reader-article>
+      <h1 class="reader-article-title">先看懂系统</h1>
+      <section class="reader-block reader-block--heading"><h2 id="lesson-system">系统</h2></section>
+      <div class="reader-block reader-block--text"><p>原始报告 → 视频证据 → 方法论。</p></div>
+      <div class="explain-callout" data-kind="insight"><div class="explain-callout-title">核心理解</div><p>Explain 不覆盖原始归档。</p></div>
+      <script>window.__unsafe_lesson_script__ = true;</script>
+    </article>
+  `, 'utf8');
+
+  const chaptersRoot = path.join(explainRoot, 'chapters');
+  fs.mkdirSync(chaptersRoot, { recursive: true });
+  fs.writeFileSync(path.join(chaptersRoot, 'manifest.json'), JSON.stringify({
+    version: 1,
+    title: 'Reader Fixture · 学习版',
+    chapters: [
+      {
+        id: '00-start',
+        number: '00',
+        label: '导读',
+        title: '从这里开始',
+        file: '00-start.md',
+        status: 'ready',
+      },
+      {
+        id: '01-system',
+        number: '01',
+        label: '爆单系统',
+        title: '系统怎么工作',
+        file: '01-system.md',
+        status: 'ready',
+      },
+      {
+        id: '02-planned',
+        number: '02',
+        label: '后续章节',
+        title: '后续章节',
+        file: '02-planned.md',
+        status: 'planned',
+      },
+    ],
+  }, null, 2), 'utf8');
+
+  const markdownFence = String.fromCharCode(96).repeat(3);
+  fs.writeFileSync(path.join(chaptersRoot, '00-start.md'), [
+    '# 00｜从这里开始',
+    '',
+    '先看懂整个系统。',
+    '',
+    '## 为什么不是一条爆款',
+    '',
+    '> 重点是持续找到赢家。',
+    '',
+    markdownFence + 'text',
+    '做',
+    '↓',
+    '测',
+    markdownFence,
+  ].join('\n'), 'utf8');
+  fs.writeFileSync(path.join(chaptersRoot, '01-system.md'), [
+    '# 01｜爆单系统',
+    '',
+    '系统的核心是 **测试**。',
+    '',
+    '## 四个步骤',
+    '',
+    '| 阶段 | 作用 |',
+    '|---|---|',
+    '| 做 | 提交候选 |',
+    '| 测 | 获得反馈 |',
+  ].join('\n'), 'utf8');
+
   const { server, port } = await startViewer({ libraryRoot, host: '127.0.0.1', port: 0 });
   const browser = await chromium.launch({ headless: true, executablePath: detectChrome('auto') });
 
   try {
     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    const homeUrl = `http://127.0.0.1:${port}/`;
+    const homeResponse = await page.goto(homeUrl, { waitUntil: 'networkidle' });
+    assert.strictEqual(homeResponse.status(), 200);
+    assert.strictEqual(await page.locator('a.btn-primary').count(), 1);
+    assert.strictEqual(await page.locator('a.btn-secondary').count(), 1);
+
+    assert.strictEqual((await page.locator('a.btn-primary').first().innerText()).includes('进入学习版'), true);
+    assert.strictEqual((await page.locator('a.btn-secondary').first().innerText()).includes('查看原始文章'), true);
+    assert.strictEqual(await page.locator('[data-theme-toggle]').count(), 1);
+
+    const explainUrl = `http://127.0.0.1:${port}/explain/${encodeURIComponent(folder)}/`;
+    const explainResponse = await page.goto(explainUrl, { waitUntil: 'networkidle' });
+    assert.strictEqual(explainResponse.status(), 200);
+    assert.strictEqual(await page.locator('body.explain-chapter-reader').count(), 1);
+    assert.strictEqual(await page.locator('.chapter-nav-item').count(), 2);
+    assert.strictEqual(await page.locator('.chapter-nav-item.is-active').count(), 1);
+    assert.strictEqual(await page.locator('.chapter-nav-item.is-disabled').count(), 0);
+    assert.strictEqual(await page.locator('.explain-lesson-card').count(), 0);
+    assert.strictEqual(await page.locator('.explain-stat-grid').count(), 0);
+    assert.strictEqual(await page.locator('.reader-toc').count(), 0);
+    assert.strictEqual((await page.locator('.reader-article-title').innerText()).includes('00｜从这里开始'), true);
+    assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.strictEqual(await page.locator('[data-theme-toggle]').count(), 1);
+
+    await page.click('[data-theme-toggle]');
+    assert.strictEqual(await page.evaluate(() => document.documentElement.getAttribute('data-theme')), 'dark');
+    assert.strictEqual(await page.evaluate(() => localStorage.getItem('feishu-notes-theme')), 'dark');
+    assert.strictEqual(await page.locator('[data-theme-toggle]').getAttribute('aria-pressed'), 'true');
+    await page.click('[data-theme-toggle]');
+    assert.strictEqual(await page.evaluate(() => document.documentElement.getAttribute('data-theme')), 'light');
+    assert.strictEqual(await page.evaluate(() => localStorage.getItem('feishu-notes-theme')), 'light');
+
+    const chapterOneUrl = explainUrl + '?chapter=01-system';
+    const chapterOneResponse = await page.goto(chapterOneUrl, { waitUntil: 'networkidle' });
+    assert.strictEqual(chapterOneResponse.status(), 200);
+    assert.strictEqual((await page.locator('.reader-article-title').innerText()).includes('01｜爆单系统'), true);
+    assert.strictEqual(await page.locator('.reader-content table').count(), 1);
+    assert.strictEqual(await page.locator('.chapter-nav-item.is-active').getAttribute('href'), chapterOneUrl.replace(`http://127.0.0.1:${port}`, ''));
+
+    const legacyLessonUrl = `http://127.0.0.1:${port}/explain/${encodeURIComponent(folder)}/00-overview/`;
+    const legacyLessonResponse = await page.goto(legacyLessonUrl, { waitUntil: 'domcontentloaded' });
+    assert.strictEqual(legacyLessonResponse.status(), 404);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(explainUrl, { waitUntil: 'networkidle' });
+    const chapterMobile = await page.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth > innerWidth,
+      sidebarDisplay: getComputedStyle(document.querySelector('.chapter-sidebar')).display,
+      mobileNavDisplay: getComputedStyle(document.querySelector('.chapter-mobile-nav')).display,
+      selected: document.querySelector('[data-chapter-select]')?.value || '',
+    }));
+    assert.strictEqual(chapterMobile.overflow, false);
+    assert.strictEqual(chapterMobile.sidebarDisplay, 'none');
+    assert.notStrictEqual(chapterMobile.mobileNavDisplay, 'none');
+    assert.ok(chapterMobile.selected.includes('00-start'));
+
+    await page.setViewportSize({ width: 1920, height: 1080 });
     const url = `http://127.0.0.1:${port}/note/${encodeURIComponent(folder)}/`;
     const response = await page.goto(url, { waitUntil: 'networkidle' });
     assert.strictEqual(response.status(), 200);
@@ -287,10 +451,10 @@ async function main() {
     assert.ok(desktop1920.toc.width >= 200 && desktop1920.toc.width <= 216);
     assert.strictEqual(desktop1920.splitter.width, 12);
     assert.ok(desktop1920.main.width > 1200);
-    assert.ok(desktop1920.text.width > 1000);
+    assert.ok(desktop1920.text.width >= 900 && desktop1920.text.width <= 962);
     assert.ok(Math.abs(desktop1920.title.left - desktop1920.text.left) <= 1);
     assert.ok(Math.abs(desktop1920.text.left - desktop1920.table.left) <= 1);
-    assert.ok(Math.abs(desktop1920.text.width - desktop1920.table.width) <= 1);
+    assert.ok(desktop1920.table.width > desktop1920.text.width + 250);
     assert.deepStrictEqual(desktop1920.tocHrefs.slice(0, 2), ['#block-101', '#block-102']);
     assert.strictEqual(desktop1920.tocLinks, desktop1920.headings);
     assert.strictEqual(desktop1920.mediaGrid.count, 2);
@@ -324,12 +488,14 @@ async function main() {
       tocWidth: Math.round(document.querySelector('.reader-toc').getBoundingClientRect().width),
       mainWidth: Math.round(document.querySelector('.reader-main').getBoundingClientRect().width),
       textWidth: Math.round(document.querySelector('.reader-block--text').getBoundingClientRect().width),
+      tableWidth: Math.round(document.querySelector('.reader-block--table').getBoundingClientRect().width),
       storedWidth: Number(localStorage.getItem('feishu-notes-toc-width')),
       ariaNow: Number(document.querySelector('[data-reader-splitter]').getAttribute('aria-valuenow')),
     }));
     assert.ok(resized.tocWidth >= desktop1920.toc.width + 180);
     assert.ok(resized.mainWidth < desktop1920.main.width - 170);
-    assert.ok(resized.textWidth < desktop1920.text.width - 170);
+    assert.ok(Math.abs(resized.textWidth - desktop1920.text.width) <= 2);
+    assert.ok(resized.tableWidth < desktop1920.table.width - 170);
     assert.ok(Math.abs(resized.storedWidth - resized.tocWidth) <= 1);
     assert.ok(Math.abs(resized.ariaNow - resized.tocWidth) <= 1);
 

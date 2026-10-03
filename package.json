@@ -10,6 +10,9 @@
     "serve": "node src/cli.js serve",
     "cleanup": "node src/cli.js cleanup",
     "check": "node src/cli.js check",
+    "init:explain": "node scripts/init-explain.js",
+    "transcribe:evidence": "node scripts/transcribe-evidence.js",
+    "extract:frames": "node scripts/extract-evidence-frames.js",
     "verify:reader": "node scripts/verify-reader.js"
   },
   "dependencies": {

@@ -1,7 +1,8 @@
 (() => {
   const root = document.documentElement;
   const body = document.body;
-  const themeButton = document.querySelector('[data-theme-toggle]');
+  const themeButtons = [...document.querySelectorAll('[data-theme-option]')];
+  const themeToggle = document.querySelector('[data-theme-toggle]');
   const tocToggle = document.querySelector('[data-toc-toggle]');
   const tocCollapse = document.querySelector('[data-toc-collapse]');
   const toc = document.querySelector('[data-reader-toc]');
@@ -13,20 +14,43 @@
   const dialogImage = dialog?.querySelector('img');
   const dialogClose = dialog?.querySelector('[data-dialog-close]');
 
-  const themeNames = { system: '系统', light: '浅色', dark: '深色' };
-  const getTheme = () => localStorage.getItem('feishu-notes-theme') || 'system';
+  const getTheme = () => localStorage.getItem('feishu-notes-theme') === 'dark' ? 'dark' : 'light';
   const applyTheme = theme => {
-    if (theme === 'system') root.removeAttribute('data-theme');
-    else root.setAttribute('data-theme', theme);
-    if (themeButton) themeButton.textContent = themeNames[theme] || theme;
+    const next = theme === 'dark' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    themeButtons.forEach(button => {
+      const active = button.dataset.themeOption === next;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    if (themeToggle) {
+      const label = next === 'dark' ? '切换到亮色模式' : '切换到暗色模式';
+      themeToggle.dataset.theme = next;
+      themeToggle.setAttribute('aria-label', label);
+      themeToggle.setAttribute('title', label);
+      themeToggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    }
   };
   applyTheme(getTheme());
 
-  themeButton?.addEventListener('click', () => {
-    const current = getTheme();
-    const next = current === 'system' ? 'light' : current === 'light' ? 'dark' : 'system';
+  themeButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const next = button.dataset.themeOption === 'dark' ? 'dark' : 'light';
+      localStorage.setItem('feishu-notes-theme', next);
+      applyTheme(next);
+    });
+  });
+
+  themeToggle?.addEventListener('click', () => {
+    const current = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const next = current === 'dark' ? 'light' : 'dark';
     localStorage.setItem('feishu-notes-theme', next);
     applyTheme(next);
+  });
+
+  const chapterSelect = document.querySelector('[data-chapter-select]');
+  chapterSelect?.addEventListener('change', () => {
+    if (chapterSelect.value) location.href = chapterSelect.value;
   });
 
   const TOC_WIDTH_KEY = 'feishu-notes-toc-width';

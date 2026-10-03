@@ -57,6 +57,20 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Canonical asset cleanup is allowed only after the replacement Markdown/HTML/manifest has been written successfully.
 - Do not introduce a cross-article/global media pool without a separate architecture decision.
 
+## Explain / derived-learning rules
+
+- Original archive files remain the source of truth. Derived teaching material belongs under `library/<article>/explain/` and must never be written into `archive.json`.
+- Viewer support for Explain must remain optional; ordinary archived articles must work with no Explain directory and no ASR service.
+- `explain/manifest.json` must keep a source fingerprint so source updates can be detected instead of silently presenting stale teaching material.
+- Public Explain content is chapter-driven: `explain/chapters/manifest.json` + Markdown chapters. Only `status=ready` chapters with an existing file are user-visible.
+- Legacy `explain/lessons/`, Evidence Cases, ASR records, frames and other analysis artifacts are internal material; do not expose their counts or lists in normal navigation.
+- Video evidence uses archive `contentHash` (SHA-256) as the canonical identity. ASR, keyframes, cases and chapter citations must preserve that identity for traceability.
+- ASR output sidecars must record the content hash, canonical source video path, logical source occurrences, ASR service/model metadata, transcript and available segments.
+- `local-ASR-service` is an external local capability. Reuse it when available; do not copy business media into that repository or make the Viewer depend on it.
+- Visual review should prefer a small number of explicit timestamp frames. Frame evidence must record source video, timestamp and output image SHA-256; do not bulk-export hundreds of frames by default.
+- Reuse Evidence Cases across chapters rather than re-analysing the same video independently in every chapter.
+- Detailed schema and workflow are defined in `docs/EXPLAIN-WORKFLOW.md`.
+
 ## Viewer/service rules
 
 - Viewer binds to loopback only by default.

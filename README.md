@@ -91,7 +91,7 @@ data/profiles/<profile>/
 - 支持多个相互隔离的飞书账号 Profile。
 - 提供自适应 Reader：长文目录、阅读进度、明暗主题、响应式布局、可折叠 TOC。
 - Desktop 在 TOC 与正文之间提供可拖动 Splitter：目录宽度可在安全范围内调整、双击复位、键盘左右键微调，并自动记忆。
-- 正文不再固定为 760px；Reader 使用 Splitter 调整后剩余的可用空间，标题/正文/表格/媒体共享同一左基准线。
+- 正文不再固定为 760px；桌面端采用自适应阅读列：普通正文在约 880–960px 的舒适阅读范围内流动，表格、图片、视频等宽内容可使用 Splitter 留出的更大空间，并保持统一左基准线。
 - 取消“大白纸”容器视觉，改为透明 Reader Canvas；章节、表格、引用、代码、链接、媒体组等通过局部 Reading Enhancement CSS 建立阅读层次。
 - 同一个 Media Block 内的多个媒体允许自动 Grid；绝不跨 Block 重排媒体。
 - 正文视频按原始横/竖比例自适应；表格内媒体统一压缩为约 120px 高的紧凑触发卡，点击后进入 Cinema Lightbox。
@@ -99,6 +99,10 @@ data/profiles/<profile>/
 - 超宽表格只在自身容器内横向滚动，不撑宽整个页面。
 - 对暂未识别的未来 Block 使用保守降级：优先保留文本或媒体，避免静默丢内容。
 - 本地视频支持 HTTP Range，可在浏览器拖动播放进度。
+- 可选建立 `explain/` 派生学习层：技术目录与路由继续使用 Explain 命名，公开 UI 统一称“学习版”；保留原始归档不变，Viewer 首页以“进入学习版”为主入口、“查看原始文章”为次入口。
+- 公开学习内容使用 `explain/chapters/manifest.json + chapters/*.md`；桌面端用左侧章节导航，窄屏使用顶部章节选择，只展示 `ready` 且文件存在的章节，不再展示旧 Lesson / Evidence 统计页。
+- Explain 证据链以视频 `contentHash` 为唯一身份，ASR、关键帧、案例等内部素材均可回溯到原始媒体及 Block 位置。
+- Viewer 首页、原始文章与学习版统一使用单个亮/暗切换按钮，并通过 `feishu-notes-theme` 在本机持久化。
 - 清理 Chrome 可重建缓存，同时保留登录状态。
 - 输出格式不绑定 Obsidian；其它 Markdown 工具也可以读取。
 
