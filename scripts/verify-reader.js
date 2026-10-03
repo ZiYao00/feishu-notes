@@ -303,6 +303,51 @@ async function main() {
     '',
     '> 重点是持续找到赢家。',
     '',
+    ':::hero',
+    'eyebrow: VISUAL LEARNING',
+    'title: 样板总览',
+    'body: 用结构帮助理解。',
+    'tag: 原文顺序',
+    ':::',
+    '',
+    ':::split',
+    'title: 双栏关系',
+    'left-title: 原文',
+    'left-body: 来源判断。',
+    'right-title: 学习',
+    'right-body: 学习解释。',
+    ':::',
+    '',
+    ':::metrics',
+    'title: 数据',
+    'metric: 92.7% | 新素材 | 样板',
+    'metric: 5.1% | 爆量池 | 样板',
+    ':::',
+    '',
+    ':::flow',
+    'title: 流程',
+    'step: 01 | 做 | 提交候选',
+    'step: 02 | 测 | 获得反馈',
+    ':::',
+    '',
+    ':::compare',
+    'title: 对比',
+    'left-label: A',
+    'right-label: B',
+    'row: 维度 | 常规 | 学习',
+    ':::',
+    '',
+    ':::cards',
+    'title: 分类',
+    'card: 卡片A | 标签 | 说明',
+    'card: 卡片B | 标签 | 说明',
+    ':::',
+    '',
+    ':::takeaway',
+    'title: 总结',
+    'item: 记住结构。',
+    ':::',
+    '',
     markdownFence + 'text',
     '做',
     '↓',
@@ -348,6 +393,13 @@ async function main() {
     assert.strictEqual(await page.locator('.explain-stat-grid').count(), 0);
     assert.strictEqual(await page.locator('.reader-toc').count(), 0);
     assert.strictEqual((await page.locator('.reader-article-title').innerText()).includes('00｜从这里开始'), true);
+    assert.strictEqual(await page.locator('.learning-hero').count(), 1);
+    assert.strictEqual(await page.locator('.learning-split').count(), 1);
+    assert.strictEqual(await page.locator('.learning-metric').count(), 2);
+    assert.strictEqual(await page.locator('.learning-flow-step').count(), 2);
+    assert.strictEqual(await page.locator('.learning-compare-row').count(), 1);
+    assert.strictEqual(await page.locator('.learning-card').count(), 2);
+    assert.strictEqual(await page.locator('.learning-takeaway').count(), 1);
     assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.strictEqual(await page.locator('[data-theme-toggle]').count(), 1);
 

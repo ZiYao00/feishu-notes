@@ -167,7 +167,7 @@ Public chapters should reuse cases instead of independently re-analysing the sam
 
 The technical capability keeps the internal name `Explain` and the route remains `/explain/<folder>/` for compatibility. The normal public UI should call the result **学习版**.
 
-The source report is an evidence and knowledge source, not the chapter outline. Do not paraphrase the source section-by-section and call that a learning version. Rebuild the material around what a learner needs to understand, remember, judge, transfer and review.
+The source report is both the evidence source and, when its structure is coherent, the default learning spine. Preserve the original major-dimension order unless a real prerequisite problem makes local reordering necessary. Do not merely paraphrase section-by-section: keep the source sequence, then redesign each information block around what a learner needs to understand, remember, judge, transfer and review.
 
 Target learning progression:
 
@@ -188,23 +188,19 @@ Preferred transformation pipeline:
 ```text
 原始文章
 ↓
-事实 / 数据 / 作者判断 / 案例拆分
+高解析度拆分：事实 / 数据 / 作者判断 / 案例 / 视觉证据
 ↓
-知识地图
+判断原文章节是否具备可学习的主轴
 ↓
-学习目标
+默认保留原维度顺序；只有必要依赖才局部调整
 ↓
-概念依赖顺序
+为每个信息块标注关系：结论 / 并列 / 因果 / 对比 / 数据 / 分类 / 执行
 ↓
-学习章节设计
+选择对应视觉语义组件
 ↓
-挂载原文证据 / Evidence Case
+补充学习解释、证据边界、判断与迁移
 ↓
-章节撰写
-↓
-学习者判断题 / 迁移练习
-↓
-教学质量复核
+教学质量与版式压力复核
 ```
 
 A chapter should normally move through the following teaching logic when those parts are useful. This is a teaching checklist, not a rigid prose template:
@@ -223,6 +219,8 @@ A chapter should normally move through the following teaching logic when those p
 Quality gates:
 
 - A chapter should not merely be an easier rewrite of the source report.
+- When the source already has a strong analytical sequence, preserve that sequence so the learner can map the learning version back to the original.
+- Do not flatten every relationship into vertical prose. Parallel, causal, comparative, statistical, categorical and procedural information should look different.
 - Keep source facts, source/marketing claims, project interpretation and independently verified external facts distinguishable.
 - Evidence supports a teaching point; the existence or order of Evidence Cases must not dictate the chapter outline.
 - Do not transplant unverified medical, safety, performance or regulatory claims into a new product merely because the source creative used them.
@@ -230,8 +228,24 @@ Quality gates:
 - Prefer a small number of meaningful examples over exhaustive repetition.
 - Public navigation should expose only `status=ready` chapters with an existing Markdown file.
 
+## Visual learning grammar
+
+Public chapter Markdown may use a small controlled directive set when plain Markdown would hide the relationship between pieces of information:
+
+- `:::hero` — compact chapter orientation or core framing;
+- `:::split` — two-sided interpretation such as source vs learner view;
+- `:::metrics` — a small group of headline numbers with labels and notes;
+- `:::flow` — causal, temporal or procedural sequence;
+- `:::compare` — row-based A/B or current/future comparison;
+- `:::cards` — parallel categories, cases, personas, scenes or options;
+- `:::takeaway` — durable summary or boundary that should stand apart from prose.
+
+Use these blocks semantically, not decoratively. A page should not add badges, eyebrow labels, color blocks or oversized headings unless they carry information. Keep the visual hierarchy compact enough for long desktop study sessions. Ordinary prose remains ordinary Markdown.
+
+Directive values use simple `key: value` fields. Repeated fields such as `card:`, `step:`, `metric:`, `row:` and `item:` build repeated visual items. The Viewer sanitizes the resulting HTML; do not use the directive system to inject arbitrary markup or scripts.
+
 ## Rollout rule
 
 Do not transcribe every archived video before the teaching structure is validated. Start from the source article and method map, use only a small representative evidence set, then author a few public chapters first. Expand ASR/cases only when a chapter has a real evidence gap.
 
-For a new article, validate the learning approach on the first one or two chapters before expanding the full chapter set. Once that pilot is accepted, complete the remaining chapters using the same learning contract rather than reverting to source-order paraphrasing.
+For a new article, validate the learning approach on the first one or two chapters before expanding the full chapter set. Once that pilot is accepted, complete the remaining chapters using the same visual-learning contract. If the source report has a coherent chapter order, keep that order as the public learning spine while enriching the individual blocks rather than replacing the report with a separate course outline.

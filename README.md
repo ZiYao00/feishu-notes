@@ -100,7 +100,7 @@ data/profiles/<profile>/
 - 对暂未识别的未来 Block 使用保守降级：优先保留文本或媒体，避免静默丢内容。
 - 本地视频支持 HTTP Range，可在浏览器拖动播放进度。
 - 可选建立 `explain/` 派生学习层：技术目录与路由继续使用 Explain 命名，公开 UI 统一称“学习版”；保留原始归档不变，Viewer 首页以“进入学习版”为主入口、“查看原始文章”为次入口。
-- 公开学习内容使用 `explain/chapters/manifest.json + chapters/*.md`；桌面端用左侧章节导航，窄屏使用顶部章节选择，只展示 `ready` 且文件存在的章节，不再展示旧 Lesson / Evidence 统计页。
+- 公开学习内容使用 `explain/chapters/manifest.json + chapters/*.md`；桌面端用左侧章节导航，窄屏使用顶部章节选择，只展示 `ready` 且文件存在的章节。结构完整的原报告默认保留原维度顺序，并可使用受控的视觉学习语义块（对照、数据、流程、比较、分类、总结）减少连续长文阅读压力。
 - Explain 证据链以视频 `contentHash` 为唯一身份，ASR、关键帧、案例等内部素材均可回溯到原始媒体及 Block 位置。
 - Viewer 首页、原始文章与学习版统一使用单个亮/暗切换按钮，并通过 `feishu-notes-theme` 在本机持久化。
 - 清理 Chrome 可重建缓存，同时保留登录状态。
@@ -273,7 +273,7 @@ npm run verify:reader
 - 重复标题的稳定 Block Anchor；
 - 1920 / 1440 / 1366 / 390 四档视口与页面级横向溢出；
 - TOC 靠左、折叠状态、Splitter 拖动/持久化/双击复位，以及正文随剩余空间流式变化；
-- 大白 Paper 已取消，章节 H2、列表、链接、表格、引用、代码和媒体组的阅读增强样式可正确应用；
+- 大白 Paper 已取消，章节 H2、列表、链接、表格、引用、代码和媒体组的阅读增强样式可正确应用；学习版的 `hero / split / metrics / flow / compare / cards / takeaway` 语义块也必须正常渲染且不造成页面级横向溢出；
 - 未识别 Block 的文本 fallback。
 
 ## 开发与接手

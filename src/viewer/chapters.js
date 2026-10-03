@@ -75,6 +75,136 @@ function renderInline(value) {
     .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 }
 
+const LEARNING_DIRECTIVES = new Set(['hero', 'split', 'metrics', 'flow', 'compare', 'cards', 'takeaway']);
+
+function parseLearningDirective(lines, startIndex) {
+  const open = String(lines[startIndex] || '').trim().match(/^:::([a-z-]+)\s*$/);
+  if (!open || !LEARNING_DIRECTIVES.has(open[1])) return null;
+
+  const fields = {};
+  let index = startIndex + 1;
+  while (index < lines.length && !/^:::\s*$/.test(String(lines[index] || '').trim())) {
+    const line = String(lines[index] || '').trim();
+    const match = line.match(/^([a-z-]+):\s*(.*)$/);
+    if (match) {
+      if (!fields[match[1]]) fields[match[1]] = [];
+      fields[match[1]].push(match[2]);
+    }
+    index += 1;
+  }
+
+  if (index < lines.length) index += 1;
+  return { type: open[1], fields, nextIndex: index };
+}
+
+function firstField(fields, key) {
+  return Array.isArray(fields[key]) && fields[key].length ? fields[key][0] : '';
+}
+
+function fieldList(fields, key) {
+  return Array.isArray(fields[key]) ? fields[key] : [];
+}
+
+function splitDirectiveRow(value, expectedParts) {
+  const parts = String(value || '').split('|').map(part => part.trim());
+  while (parts.length < expectedParts) parts.push('');
+  if (parts.length > expectedParts) {
+    const tail = parts.splice(expectedParts - 1);
+    parts.push(tail.join(' | '));
+  }
+  return parts;
+}
+
+function renderLearningDirective(type, fields) {
+  const title = renderInline(firstField(fields, 'title'));
+  const body = renderInline(firstField(fields, 'body'));
+
+  if (type === 'hero') {
+    const eyebrow = renderInline(firstField(fields, 'eyebrow'));
+    const tags = fieldList(fields, 'tag').map(tag => '<span class="learning-tag">' + renderInline(tag) + '</span>').join('');
+    return '<section class="learning-block learning-hero">' +
+      (eyebrow ? '<div class="learning-eyebrow">' + eyebrow + '</div>' : '') +
+      (title ? '<h2>' + title + '</h2>' : '') +
+      (body ? '<p>' + body + '</p>' : '') +
+      (tags ? '<div class="learning-tags">' + tags + '</div>' : '') +
+      '</section>';
+  }
+
+  if (type === 'split') {
+    const leftTitle = renderInline(firstField(fields, 'left-title'));
+    const leftBody = renderInline(firstField(fields, 'left-body'));
+    const rightTitle = renderInline(firstField(fields, 'right-title'));
+    const rightBody = renderInline(firstField(fields, 'right-body'));
+    return '<section class="learning-block learning-split">' +
+      (title ? '<div class="learning-block-title">' + title + '</div>' : '') +
+      '<div class="learning-split-grid">' +
+      '<div class="learning-panel learning-panel--source"><div class="learning-panel-label">' + leftTitle + '</div><p>' + leftBody + '</p></div>' +
+      '<div class="learning-panel learning-panel--learn"><div class="learning-panel-label">' + rightTitle + '</div><p>' + rightBody + '</p></div>' +
+      '</div></section>';
+  }
+
+  if (type === 'metrics') {
+    const cards = fieldList(fields, 'metric').map(value => {
+      const [number, label, note] = splitDirectiveRow(value, 3);
+      return '<div class="learning-metric"><strong>' + renderInline(number) + '</strong><span>' + renderInline(label) + '</span>' +
+        (note ? '<small>' + renderInline(note) + '</small>' : '') + '</div>';
+    }).join('');
+    return '<section class="learning-block learning-metrics">' +
+      (title ? '<div class="learning-block-title">' + title + '</div>' : '') +
+      (body ? '<p class="learning-block-intro">' + body + '</p>' : '') +
+      '<div class="learning-metric-grid">' + cards + '</div></section>';
+  }
+
+  if (type === 'flow') {
+    const stepValues = fieldList(fields, 'step');
+    const steps = stepValues.map(value => {
+      const [number, heading, detail] = splitDirectiveRow(value, 3);
+      return '<div class="learning-flow-step"><span class="learning-flow-number">' + renderInline(number) + '</span>' +
+        '<div><strong>' + renderInline(heading) + '</strong>' + (detail ? '<p>' + renderInline(detail) + '</p>' : '') + '</div></div>';
+    }).join('');
+    const count = Math.max(1, Math.min(6, stepValues.length));
+    return '<section class="learning-block learning-flow">' +
+      (title ? '<div class="learning-block-title">' + title + '</div>' : '') +
+      (body ? '<p class="learning-block-intro">' + body + '</p>' : '') +
+      '<div class="learning-flow-track is-count-' + count + '">' + steps + '</div></section>';
+  }
+
+  if (type === 'compare') {
+    const leftLabel = renderInline(firstField(fields, 'left-label') || 'A');
+    const rightLabel = renderInline(firstField(fields, 'right-label') || 'B');
+    const rows = fieldList(fields, 'row').map(value => {
+      const [dimension, left, right] = splitDirectiveRow(value, 3);
+      return '<div class="learning-compare-row"><div class="learning-compare-key">' + renderInline(dimension) + '</div>' +
+        '<div class="learning-compare-cell">' + renderInline(left) + '</div>' +
+        '<div class="learning-compare-cell">' + renderInline(right) + '</div></div>';
+    }).join('');
+    return '<section class="learning-block learning-compare">' +
+      (title ? '<div class="learning-block-title">' + title + '</div>' : '') +
+      '<div class="learning-compare-head"><span></span><strong>' + leftLabel + '</strong><strong>' + rightLabel + '</strong></div>' +
+      rows + '</section>';
+  }
+
+  if (type === 'cards') {
+    const cards = fieldList(fields, 'card').map(value => {
+      const [heading, meta, detail] = splitDirectiveRow(value, 3);
+      return '<div class="learning-card"><strong>' + renderInline(heading) + '</strong>' +
+        (meta ? '<span>' + renderInline(meta) + '</span>' : '') +
+        (detail ? '<p>' + renderInline(detail) + '</p>' : '') + '</div>';
+    }).join('');
+    return '<section class="learning-block learning-cards">' +
+      (title ? '<div class="learning-block-title">' + title + '</div>' : '') +
+      (body ? '<p class="learning-block-intro">' + body + '</p>' : '') +
+      '<div class="learning-card-grid">' + cards + '</div></section>';
+  }
+
+  const items = fieldList(fields, 'item').map(item => '<li>' + renderInline(item) + '</li>').join('');
+  return '<section class="learning-block learning-takeaway">' +
+    (title ? '<div class="learning-block-title">' + title + '</div>' : '') +
+    (body ? '<p class="learning-block-intro">' + body + '</p>' : '') +
+    (items ? '<ul>' + items + '</ul>' : '') +
+    '</section>';
+}
+
 function splitTableRow(line) {
   return line
     .trim()
@@ -93,6 +223,7 @@ function isSpecialLine(line, nextLine) {
   const trimmed = String(line || '').trim();
   return !trimmed ||
     /^#{1,4}\s+/.test(trimmed) ||
+    /^:::[a-z-]+\s*$/.test(trimmed) ||
     /^\x60\x60\x60/.test(trimmed) ||
     /^>\s?/.test(trimmed) ||
     /^[-*_]{3,}$/.test(trimmed) ||
@@ -118,6 +249,13 @@ function renderMarkdown(markdown) {
 
     if (!trimmed) {
       index += 1;
+      continue;
+    }
+
+    const learningDirective = parseLearningDirective(lines, index);
+    if (learningDirective) {
+      out.push(renderLearningDirective(learningDirective.type, learningDirective.fields));
+      index = learningDirective.nextIndex;
       continue;
     }
 
@@ -220,7 +358,7 @@ function renderMarkdown(markdown) {
   const html = '<article class="reader-article explain-chapter-article" data-reader-article>' + out.join('\n') + '</article>';
   return sanitizeHtml(html, {
     allowedTags: [
-      'article', 'section', 'div', 'h1', 'h2', 'h3', 'h4',
+      'article', 'section', 'div', 'span', 'small', 'h1', 'h2', 'h3', 'h4',
       'p', 'blockquote', 'ul', 'ol', 'li', 'strong', 'em',
       'code', 'pre', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
     ],

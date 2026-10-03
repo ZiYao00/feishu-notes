@@ -17,7 +17,7 @@
 9. Markdown, adaptive sanitized HTML and manifest v2 `archive.json` are written under one folder in `library/`.
 10. Viewer wraps archived article HTML in a Reader Shell with TOC, responsive layout, media-context rendering and local lightbox behavior.
 11. Viewer reads `library/` only; it does not require Feishu after an archive is complete.
-12. Optional Explain material may be added under the article's `explain/` directory. Public learning content is chapter-driven (`chapters/manifest.json` + Markdown); evidence, ASR, frames and legacy lesson drafts remain internal derived material. The Viewer exposes a single chapter Reader and never makes Explain a dependency of the canonical archive.
+12. Optional Explain material may be added under the article's `explain/` directory. Public learning content is chapter-driven (`chapters/manifest.json` + Markdown); evidence, ASR, frames and legacy lesson drafts remain internal derived material. When a source report has a coherent analytical order, that order is the default public learning spine. `chapters.js` may render a small controlled semantic directive set (`hero`, `split`, `metrics`, `flow`, `compare`, `cards`, `takeaway`) so different information relationships do not collapse into one vertical prose stream. The Viewer exposes a single chapter Reader and never makes Explain a dependency of the canonical archive.
 
 ## Runtime data
 
