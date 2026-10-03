@@ -115,6 +115,22 @@ function splitDirectiveRow(value, expectedParts) {
   return parts;
 }
 
+function hasLearningNumber(value) {
+  return /(?:^|[^A-Za-z])(?:[<>≈~]?\s*\d[\d,.]*(?:\.\d+)?\s*(?:%|秒|分钟|小时|天|条|万|h|s)?|\d+\s*[–-]\s*\d+\s*(?:秒|分钟|小时|天|h|s)?)(?:$|[^A-Za-z])/i.test(String(value || ''));
+}
+
+function learningValueClass(value, baseClass) {
+  return baseClass + (hasLearningNumber(value) ? ' is-numeric' : '');
+}
+
+function renderFlowSteps(stepValues) {
+  return stepValues.map(value => {
+    const [number, heading, detail] = splitDirectiveRow(value, 3);
+    return '<div class="learning-flow-step"><span class="learning-flow-number">' + renderInline(number) + '</span>' +
+      '<div class="learning-flow-copy"><strong>' + renderInline(heading) + '</strong>' + (detail ? '<p>' + renderInline(detail) + '</p>' : '') + '</div></div>';
+  });
+}
+
 function renderLearningDirective(type, fields) {
   const title = renderInline(firstField(fields, 'title'));
   const body = renderInline(firstField(fields, 'body'));
@@ -157,16 +173,20 @@ function renderLearningDirective(type, fields) {
 
   if (type === 'flow') {
     const stepValues = fieldList(fields, 'step');
-    const steps = stepValues.map(value => {
-      const [number, heading, detail] = splitDirectiveRow(value, 3);
-      return '<div class="learning-flow-step"><span class="learning-flow-number">' + renderInline(number) + '</span>' +
-        '<div><strong>' + renderInline(heading) + '</strong>' + (detail ? '<p>' + renderInline(detail) + '</p>' : '') + '</div></div>';
-    }).join('');
+    const stepHtml = renderFlowSteps(stepValues);
     const count = Math.max(1, Math.min(6, stepValues.length));
+    let track = '<div class="learning-flow-track is-count-' + count + '">' + stepHtml.join('') + '</div>';
+    if (count === 6) {
+      track = '<div class="learning-flow-stack">' +
+        '<div class="learning-flow-track is-count-3">' + stepHtml.slice(0, 3).join('') + '</div>' +
+        '<div class="learning-flow-turn" aria-hidden="true"><span>继续</span><strong>↓</strong></div>' +
+        '<div class="learning-flow-track is-count-3">' + stepHtml.slice(3).join('') + '</div>' +
+        '</div>';
+    }
     return '<section class="learning-block learning-flow">' +
       (title ? '<div class="learning-block-title">' + title + '</div>' : '') +
       (body ? '<p class="learning-block-intro">' + body + '</p>' : '') +
-      '<div class="learning-flow-track is-count-' + count + '">' + steps + '</div></section>';
+      track + '</section>';
   }
 
   if (type === 'compare') {
@@ -174,9 +194,9 @@ function renderLearningDirective(type, fields) {
     const rightLabel = renderInline(firstField(fields, 'right-label') || 'B');
     const rows = fieldList(fields, 'row').map(value => {
       const [dimension, left, right] = splitDirectiveRow(value, 3);
-      return '<div class="learning-compare-row"><div class="learning-compare-key">' + renderInline(dimension) + '</div>' +
-        '<div class="learning-compare-cell">' + renderInline(left) + '</div>' +
-        '<div class="learning-compare-cell">' + renderInline(right) + '</div></div>';
+      return '<div class="learning-compare-row"><div class="' + learningValueClass(dimension, 'learning-compare-key') + '">' + renderInline(dimension) + '</div>' +
+        '<div class="' + learningValueClass(left, 'learning-compare-cell') + '">' + renderInline(left) + '</div>' +
+        '<div class="' + learningValueClass(right, 'learning-compare-cell') + '">' + renderInline(right) + '</div></div>';
     }).join('');
     return '<section class="learning-block learning-compare">' +
       (title ? '<div class="learning-block-title">' + title + '</div>' : '') +
@@ -188,7 +208,7 @@ function renderLearningDirective(type, fields) {
     const cards = fieldList(fields, 'card').map(value => {
       const [heading, meta, detail] = splitDirectiveRow(value, 3);
       return '<div class="learning-card"><strong>' + renderInline(heading) + '</strong>' +
-        (meta ? '<span>' + renderInline(meta) + '</span>' : '') +
+        (meta ? '<span class="' + learningValueClass(meta, 'learning-card-meta') + '">' + renderInline(meta) + '</span>' : '') +
         (detail ? '<p>' + renderInline(detail) + '</p>' : '') + '</div>';
     }).join('');
     return '<section class="learning-block learning-cards">' +

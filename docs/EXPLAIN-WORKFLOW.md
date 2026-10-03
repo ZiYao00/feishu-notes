@@ -242,6 +242,10 @@ Public chapter Markdown may use a small controlled directive set when plain Mark
 
 Use these blocks semantically, not decoratively. A page should not add badges, eyebrow labels, color blocks or oversized headings unless they carry information. Keep the visual hierarchy compact enough for long desktop study sessions. Ordinary prose remains ordinary Markdown.
 
+Numeric hierarchy is semantic rather than automatic. Enlarge numbers only when they carry data, stage, order, time, ratio, ranking or comparison meaning; ordinary years, ids and incidental numbers should stay at body size. Use three approximate levels on desktop: headline metrics about 28–36px, emphasized numbers about 20–24px, and comparison/table numbers about 16–18px. Numeric values should use tabular figures where practical so percentages and counts align cleanly.
+
+`:::flow` is a continuous sequence, not a row of unrelated cards. On desktop, 2–5 steps should read as one connected horizontal track with a strong step number, compact title and short explanation. A 6-step flow should split into two connected 3-step tracks rather than six narrow cards. On narrow layouts, flow steps become a vertical timeline. Keep flow copy concise enough that the skeleton is visible at a glance; move deeper explanation outside the flow when necessary.
+
 Directive values use simple `key: value` fields. Repeated fields such as `card:`, `step:`, `metric:`, `row:` and `item:` build repeated visual items. The Viewer sanitizes the resulting HTML; do not use the directive system to inject arbitrary markup or scripts.
 
 ## Rollout rule

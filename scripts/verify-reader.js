@@ -328,19 +328,23 @@ async function main() {
     'title: 流程',
     'step: 01 | 做 | 提交候选',
     'step: 02 | 测 | 获得反馈',
+    'step: 03 | 淘汰 | 停止弱项',
+    'step: 04 | 放大 | 裂变赢家',
+    'step: 05 | 复盘 | 记录变量',
+    'step: 06 | 继续 | 进入下一轮',
     ':::',
     '',
     ':::compare',
     'title: 对比',
     'left-label: A',
     'right-label: B',
-    'row: 维度 | 常规 | 学习',
+    'row: 曝光 | 30万 | 100万',
     ':::',
     '',
     ':::cards',
     'title: 分类',
-    'card: 卡片A | 标签 | 说明',
-    'card: 卡片B | 标签 | 说明',
+    'card: 卡片A | 约 88% | 数字标签',
+    'card: 卡片B | 普通标签 | 说明',
     ':::',
     '',
     ':::takeaway',
@@ -396,10 +400,24 @@ async function main() {
     assert.strictEqual(await page.locator('.learning-hero').count(), 1);
     assert.strictEqual(await page.locator('.learning-split').count(), 1);
     assert.strictEqual(await page.locator('.learning-metric').count(), 2);
-    assert.strictEqual(await page.locator('.learning-flow-step').count(), 2);
+    assert.strictEqual(await page.locator('.learning-flow-step').count(), 6);
+    assert.strictEqual(await page.locator('.learning-flow-stack').count(), 1);
+    assert.strictEqual(await page.locator('.learning-flow-turn').count(), 1);
     assert.strictEqual(await page.locator('.learning-compare-row').count(), 1);
+    assert.strictEqual(await page.locator('.learning-compare-row .is-numeric').count(), 2);
     assert.strictEqual(await page.locator('.learning-card').count(), 2);
+    assert.strictEqual(await page.locator('.learning-card-meta.is-numeric').count(), 1);
     assert.strictEqual(await page.locator('.learning-takeaway').count(), 1);
+    const learningTypeScale = await page.evaluate(() => ({
+      metric: parseFloat(getComputedStyle(document.querySelector('.learning-metric strong')).fontSize),
+      flow: parseFloat(getComputedStyle(document.querySelector('.learning-flow-number')).fontSize),
+      cardNumeric: parseFloat(getComputedStyle(document.querySelector('.learning-card-meta.is-numeric')).fontSize),
+      compareNumeric: parseFloat(getComputedStyle(document.querySelector('.learning-compare-row .is-numeric')).fontSize),
+    }));
+    assert.ok(learningTypeScale.metric >= 28);
+    assert.ok(learningTypeScale.flow >= 26);
+    assert.ok(learningTypeScale.cardNumeric >= 20);
+    assert.ok(learningTypeScale.compareNumeric >= 16);
     assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.strictEqual(await page.locator('[data-theme-toggle]').count(), 1);
 
