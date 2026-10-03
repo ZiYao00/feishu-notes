@@ -77,9 +77,9 @@ The Reader is one stable shell with context-aware block rendering rather than on
 - the former full white-paper surface is intentionally removed; visual hierarchy is created by local reading-enhancement components rather than one giant card;
 - standalone videos preserve source aspect ratio and are bounded by viewport height;
 - multiple media items may form a grid only inside the same source media block; media is never regrouped across block boundaries;
-- table-cell images/videos use compact fixed-height triggers and open in one reusable cinema-style lightbox so table row height remains manageable;
-- standalone local images are size-bounded and open in the same lightbox;
-- tables scroll inside their own container instead of expanding the full page;
+- table-cell images/videos use compact fixed-height triggers, while standalone videos also become explicit media triggers; all Reader media opens in one reusable transparent Media Dialog, and video activation starts playback;
+- standalone local images are size-bounded and open in the same dialog; Escape or a blank-stage click closes it and focus returns to the opener;
+- desktop tables use compact / standard / wide width modes: short low-density tables shrink to content, normal tables use a bounded reading width, and media-heavy or multi-column tables use the available Reader canvas; content-aware column weighting and wrapping prevent horizontal scrolling, while narrow layouts convert rows into labeled record cards;
 - heading anchors are based on stable block ids, so repeated heading text remains navigable;
 - desktop TOC can resize or collapse; the splitter is hidden and the TOC becomes a drawer on narrower screens;
 - Reader CSS provides restrained visual hierarchy for headings, lists, links, tables, quotes, inline/code blocks and media groups while keeping document structure unchanged;

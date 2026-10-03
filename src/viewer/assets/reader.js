@@ -260,6 +260,225 @@
     return true;
   };
 
+  const parseIndentedBulletLines = text =>
+    String(text || '')
+      .split(/\r?\n/)
+      .map(line => {
+        const match = line.match(/^(\s*)[-*•]\s+(.+?)\s*$/);
+        return match
+          ? { indent: match[1].replace(/\t/g, '  ').length, text: match[2].trim() }
+          : null;
+      })
+      .filter(Boolean);
+
+  const numberedStepMatch = value =>
+    String(value || '').match(/^([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\d{1,2}[.、)])\s*(.+)$/);
+
+  const parseFlowCode = text => {
+    const bullets = parseIndentedBulletLines(text);
+    if (bullets.length < 4) return null;
+
+    const rootItem = bullets[0];
+    const numbered = bullets
+      .map((item, index) => ({ item, index, match: numberedStepMatch(item.text) }))
+      .filter(entry => entry.match);
+    if (numbered.length < 3) return null;
+
+    const stepIndent = Math.min(...numbered.map(entry => entry.item.indent));
+    const stepEntries = numbered.filter(entry => entry.item.indent === stepIndent);
+    if (stepEntries.length < 3) return null;
+
+    const steps = stepEntries.map((entry, stepIndex) => {
+      const next = stepEntries[stepIndex + 1];
+      const details = bullets
+        .slice(entry.index + 1, next ? next.index : bullets.length)
+        .filter(item => item.indent > stepIndent)
+        .map(item => item.text);
+      return {
+        title: entry.match[2].trim(),
+        details,
+      };
+    });
+
+    return {
+      title: rootItem.indent < stepIndent ? rootItem.text : '流程',
+      steps,
+    };
+  };
+
+  const tierTone = title => {
+    if (/低|避坑|不做|淘汰|谨慎/.test(title)) return 'danger';
+    if (/中|择优|观察|可选/.test(title)) return 'warning';
+    return 'success';
+  };
+
+  const parseTierCode = text => {
+    const bullets = parseIndentedBulletLines(text);
+    if (bullets.length < 5) return null;
+    const rootItem = bullets[0];
+
+    const candidates = bullets
+      .map((item, index) => ({ item, index, next: bullets[index + 1] }))
+      .filter(entry =>
+        entry.index > 0 &&
+        entry.next &&
+        entry.item.indent > rootItem.indent &&
+        entry.next.indent > entry.item.indent &&
+        !numberedStepMatch(entry.item.text)
+      );
+    if (candidates.length < 2) return null;
+
+    const groupIndent = Math.min(...candidates.map(entry => entry.item.indent));
+    const groups = candidates.filter(entry => entry.item.indent === groupIndent);
+    if (groups.length < 2) return null;
+
+    const semanticGroups = groups.filter(entry =>
+      /高|中|低|必做|择优|避坑|优先|推荐|谨慎|不做|淘汰/.test(entry.item.text)
+    );
+    if (semanticGroups.length < 2) return null;
+
+    return {
+      title: rootItem.indent < groupIndent ? rootItem.text : '分层',
+      groups: groups.map((entry, groupIndex) => {
+        const next = groups[groupIndex + 1];
+        return {
+          title: entry.item.text,
+          tone: tierTone(entry.item.text),
+          items: bullets
+            .slice(entry.index + 1, next ? next.index : bullets.length)
+            .filter(item => item.indent > groupIndent)
+            .map(item => item.text),
+        };
+      }),
+    };
+  };
+
+  const renderFlowCode = data => {
+    const section = document.createElement('section');
+    section.className = 'reader-structured reader-structured--flow';
+    section.style.setProperty('--reader-flow-count', String(data.steps.length));
+
+    const title = document.createElement('div');
+    title.className = 'reader-structured-title';
+    title.textContent = data.title;
+
+    const track = document.createElement('div');
+    track.className = 'reader-structured-flow-track';
+    data.steps.forEach((step, index) => {
+      const item = document.createElement('article');
+      item.className = 'reader-structured-flow-step';
+
+      const number = document.createElement('span');
+      number.className = 'reader-structured-flow-number';
+      number.textContent = String(index + 1).padStart(2, '0');
+
+      const copy = document.createElement('div');
+      copy.className = 'reader-structured-flow-copy';
+      const heading = document.createElement('strong');
+      heading.textContent = step.title;
+      copy.appendChild(heading);
+
+      if (step.details.length) {
+        const list = document.createElement('ul');
+        step.details.forEach(detail => {
+          const row = document.createElement('li');
+          row.textContent = detail;
+          list.appendChild(row);
+        });
+        copy.appendChild(list);
+      }
+
+      item.append(number, copy);
+      track.appendChild(item);
+    });
+
+    section.append(title, track);
+    return section;
+  };
+
+  const splitTierItem = value => {
+    const colon = String(value || '').match(/^([^：:]{1,28})[：:]\s*(.+)$/);
+    if (!colon) return { label: value, metric: '', detail: '' };
+    const label = colon[1].trim();
+    const remainder = colon[2].trim();
+    const arrow = remainder.split(/\s*[→⇒]\s*/, 2);
+    const metricCandidate = arrow[0]?.trim() || '';
+    const metric = /\d|%|≤|≥|≈|约|</.test(metricCandidate) ? metricCandidate : '';
+    return {
+      label,
+      metric,
+      detail: metric ? (arrow[1] || '') : remainder,
+    };
+  };
+
+  const renderTierCode = data => {
+    const section = document.createElement('section');
+    section.className = 'reader-structured reader-structured--tier';
+
+    const title = document.createElement('div');
+    title.className = 'reader-structured-title';
+    title.textContent = data.title;
+
+    const stack = document.createElement('div');
+    stack.className = 'reader-tier-stack';
+    data.groups.forEach(group => {
+      const groupNode = document.createElement('section');
+      groupNode.className = 'reader-tier-group';
+      groupNode.dataset.tone = group.tone;
+
+      const heading = document.createElement('div');
+      heading.className = 'reader-tier-heading';
+      heading.textContent = group.title;
+
+      const items = document.createElement('div');
+      items.className = 'reader-tier-items';
+      group.items.forEach(value => {
+        const parsed = splitTierItem(value);
+        const item = document.createElement('article');
+        item.className = 'reader-tier-item';
+
+        const label = document.createElement('strong');
+        label.textContent = parsed.label;
+        item.appendChild(label);
+
+        if (parsed.metric) {
+          const metric = document.createElement('span');
+          metric.className = 'reader-tier-metric';
+          metric.textContent = parsed.metric;
+          item.appendChild(metric);
+        }
+
+        if (parsed.detail) {
+          const detail = document.createElement('p');
+          detail.textContent = parsed.detail;
+          item.appendChild(detail);
+        }
+
+        items.appendChild(item);
+      });
+
+      groupNode.append(heading, items);
+      stack.appendChild(groupNode);
+    });
+
+    section.append(title, stack);
+    return section;
+  };
+
+  document.querySelectorAll('.reader-block--code pre > code').forEach(code => {
+    const block = code.closest('.reader-block--code');
+    const pre = code.parentElement;
+    if (!block || !pre) return;
+    const text = code.textContent || '';
+    const flow = parseFlowCode(text);
+    const tier = flow ? null : parseTierCode(text);
+    const replacement = flow ? renderFlowCode(flow) : tier ? renderTierCode(tier) : null;
+    if (!replacement) return;
+
+    block.classList.add('is-structured-code', flow ? 'is-structured-flow' : 'is-structured-tier');
+    pre.replaceWith(replacement);
+  });
+
   const h3Blocks = [...document.querySelectorAll('.reader-block--heading')]
     .filter(block => block.querySelector('h3'));
 
@@ -332,15 +551,85 @@
     });
   }
 
+  const numericCellPattern = /^[≈~约≤≥<>]?\s*[+-]?[\d,.]+(?:\s*[-–~]\s*[\d,.]+)?(?:%|万|亿|条|秒|s|元|岁|年|次|瓶|个)?$/i;
+  const statusCellPattern = /^(?:[★☆]{1,5}(?:\s*.{0,8})?|主导|辅助|高频穿插|几乎不做|高|中|低|必做|择优(?:做)?|避坑|主力)$/;
+  const statusToneFor = value => {
+    if (/几乎不做|避坑|低/.test(value)) return 'danger';
+    if (/辅助|中|择优/.test(value)) return 'warning';
+    if (/主导|主力|必做|高|★★★★★/.test(value)) return 'success';
+    return 'neutral';
+  };
+
   document.querySelectorAll('.reader-table-wrap table').forEach(table => {
-    const rows = [...table.querySelectorAll('tbody tr')];
-    if (!rows.length) return;
-    const maxColumns = Math.max(...rows.map(row => row.children.length));
+    table.classList.add('reader-smart-table');
+    const allRows = [...table.rows];
+    if (!allRows.length) return;
+
+    let headerRow = table.tHead?.rows?.[0] || null;
+    if (!headerRow && allRows.length > 1) {
+      headerRow = allRows[0];
+      headerRow.classList.add('reader-table-head-row', 'is-inferred');
+      [...headerRow.cells].forEach(cell => {
+        cell.classList.add('reader-table-head-cell');
+        cell.setAttribute('role', 'columnheader');
+      });
+    } else if (headerRow) {
+      headerRow.classList.add('reader-table-head-row');
+    }
+
+    const rows = allRows.filter(row => row !== headerRow);
+    const headerLabels = headerRow
+      ? [...headerRow.cells].map((cell, index) => cell.textContent.trim() || ('第' + (index + 1) + '列'))
+      : [];
+    const maxColumns = Math.max(...allRows.map(row => row.cells.length));
+    const columnKinds = [];
 
     for (let column = 0; column < maxColumns; column += 1) {
       const cells = rows
-        .map(row => row.children[column])
+        .map(row => row.cells[column])
         .filter(Boolean);
+      const headerCell = headerRow?.cells?.[column] || null;
+      const columnCells = [headerCell, ...cells].filter(Boolean);
+      const dataTexts = cells.map(cell => cell.textContent.trim()).filter(Boolean);
+      const mediaCount = cells.filter(cell => cell.querySelector('.reader-media--table-cell,.table-media-trigger')).length;
+      const percentCount = dataTexts.filter(value => /(?:约\s*)?\d+(?:\.\d+)?%/.test(value)).length;
+      const numericCount = dataTexts.filter(value => numericCellPattern.test(value)).length;
+      const statusCount = dataTexts.filter(value => statusCellPattern.test(value)).length;
+      const averageLength = dataTexts.length
+        ? dataTexts.reduce((sum, value) => sum + value.length, 0) / dataTexts.length
+        : 0;
+      const threshold = Math.max(1, Math.ceil(dataTexts.length * 0.6));
+      let kind = 'default';
+      if (mediaCount >= Math.max(1, Math.ceil(cells.length * 0.5))) kind = 'media';
+      else if (percentCount >= threshold) kind = 'percent';
+      else if (numericCount >= threshold) kind = 'numeric';
+      else if (statusCount >= threshold) kind = 'status';
+      else if (averageLength >= 18) kind = 'long';
+      else if (column === 0) kind = 'label';
+      columnKinds[column] = kind;
+
+      columnCells.forEach(cell => {
+        cell.classList.add('reader-col-' + kind);
+        cell.dataset.columnKind = kind;
+      });
+
+      cells.forEach(cell => {
+        const label = headerLabels[column] || ('第' + (column + 1) + '列');
+        cell.dataset.label = label;
+      });
+
+      if (kind === 'status') {
+        cells.forEach(cell => {
+          const value = cell.textContent.trim();
+          if (!value || cell.childElementCount) return;
+          const chip = document.createElement('span');
+          chip.className = 'reader-cell-chip';
+          chip.dataset.tone = statusToneFor(value);
+          chip.textContent = value;
+          cell.replaceChildren(chip);
+        });
+      }
+
       const percentages = cells
         .map(cell => {
           const match = cell.textContent.trim().match(/(?:约\s*)?(\d+(?:\.\d+)?)%/);
@@ -356,17 +645,76 @@
       }
     }
 
+    const dataCellTexts = rows
+      .flatMap(row => [...row.cells].map(cell => cell.textContent.trim()))
+      .filter(Boolean);
+    const longestCellLength = dataCellTexts.length
+      ? Math.max(...dataCellTexts.map(value => value.length))
+      : 0;
+    const averageCellLength = dataCellTexts.length
+      ? dataCellTexts.reduce((sum, value) => sum + value.length, 0) / dataCellTexts.length
+      : 0;
+    const hasMediaColumn = columnKinds.includes('media');
+    const hasLongColumn = columnKinds.includes('long');
+    let tableWidthMode = 'standard';
+    if (
+      maxColumns <= 4 &&
+      !hasMediaColumn &&
+      !hasLongColumn &&
+      longestCellLength <= 24 &&
+      averageCellLength <= 12
+    ) {
+      tableWidthMode = 'compact';
+    } else if (
+      maxColumns >= 6 ||
+      hasMediaColumn ||
+      (maxColumns >= 5 && hasLongColumn)
+    ) {
+      tableWidthMode = 'wide';
+    }
+
+    table.classList.add('reader-smart-table--' + tableWidthMode);
+    const tableWrap = table.closest('.reader-table-wrap');
+    tableWrap?.classList.add('reader-table-wrap--' + tableWidthMode);
+
     rows.forEach(row => {
-      const first = row.children[0]?.textContent.trim() || '';
+      const first = row.cells[0]?.textContent.trim() || '';
       if (first.startsWith('❌')) row.classList.add('is-warning-row');
     });
+
+    const hasSpans = allRows.some(row =>
+      [...row.cells].some(cell => Number(cell.colSpan || 1) > 1 || Number(cell.rowSpan || 1) > 1)
+    );
+    if (tableWidthMode !== 'compact' && !hasSpans && !table.querySelector('colgroup')) {
+      const sampleCells = Array.from({ length: maxColumns }, (_, column) =>
+        headerRow?.cells?.[column] || rows.find(row => row.cells[column])?.cells?.[column] || null
+      );
+      const weights = sampleCells.map((cell, column) => {
+        const kind = cell?.dataset.columnKind || (column === 0 ? 'label' : 'default');
+        if (kind === 'media') return 1.35;
+        if (kind === 'long') return 2.25;
+        if (kind === 'numeric') return 0.82;
+        if (kind === 'percent') return 0.9;
+        if (kind === 'status') return 0.95;
+        if (kind === 'label' || column === 0) return 1.35;
+        return 1.15;
+      });
+      const total = weights.reduce((sum, weight) => sum + weight, 0) || 1;
+      const colgroup = document.createElement('colgroup');
+      weights.forEach(weight => {
+        const col = document.createElement('col');
+        col.style.width = ((weight / total) * 100).toFixed(3) + '%';
+        colgroup.appendChild(col);
+      });
+      table.prepend(colgroup);
+    }
   });
 
   const playIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg>';
 
-  const openMedia = ({ kind, src }) => {
-    if (!dialog || !src) return;
+  let lastMediaTrigger = null;
 
+  const resetDialogMedia = () => {
     if (dialogVideo) {
       dialogVideo.pause();
       dialogVideo.removeAttribute('src');
@@ -377,6 +725,13 @@
       dialogImage.removeAttribute('src');
       dialogImage.hidden = true;
     }
+  };
+
+  const openMedia = ({ kind, src, opener = null }) => {
+    if (!dialog || !src) return;
+
+    resetDialogMedia();
+    lastMediaTrigger = opener instanceof HTMLElement ? opener : null;
 
     if (kind === 'image' && dialogImage) {
       dialogImage.src = src;
@@ -388,6 +743,10 @@
     }
 
     dialog.showModal();
+    if (kind !== 'image' && dialogVideo) {
+      const playPromise = dialogVideo.play();
+      if (playPromise?.catch) playPromise.catch(() => {});
+    }
   };
 
   document.querySelectorAll('.reader-media--table-cell').forEach(figure => {
@@ -437,6 +796,23 @@
     figure.replaceWith(button);
   });
 
+  document.querySelectorAll('.reader-media--standalone .reader-video').forEach(video => {
+    const figure = video.closest('.reader-media--standalone');
+    const src = video.getAttribute('src');
+    if (!figure || !src) return;
+
+    figure.classList.add('is-dialog-trigger');
+    figure.dataset.mediaSrc = src;
+    figure.dataset.mediaKind = 'video';
+    figure.tabIndex = 0;
+    figure.setAttribute('role', 'button');
+    figure.setAttribute('aria-label', '打开视频并自动播放');
+    video.controls = false;
+    video.preload = 'metadata';
+    video.tabIndex = -1;
+    video.setAttribute('aria-hidden', 'true');
+  });
+
   const isLocalImage = image => {
     try {
       const url = new URL(image.currentSrc || image.src, location.href);
@@ -458,37 +834,38 @@
   document.addEventListener('click', event => {
     const trigger = event.target.closest('.table-media-trigger');
     if (trigger) {
-      openMedia({ kind: trigger.dataset.mediaKind || 'video', src: trigger.dataset.mediaSrc });
+      openMedia({ kind: trigger.dataset.mediaKind || 'video', src: trigger.dataset.mediaSrc, opener: trigger });
+      return;
+    }
+
+    const videoTrigger = event.target.closest('.reader-media--standalone.is-dialog-trigger');
+    if (videoTrigger) {
+      event.preventDefault();
+      openMedia({ kind: 'video', src: videoTrigger.dataset.mediaSrc, opener: videoTrigger });
       return;
     }
 
     const image = event.target.closest('.reader-content img[data-reader-zoomable]');
     if (image) {
       event.preventDefault();
-      openMedia({ kind: 'image', src: image.currentSrc || image.src });
+      openMedia({ kind: 'image', src: image.currentSrc || image.src, opener: image });
     }
   });
 
   document.addEventListener('keydown', event => {
+    if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.reader-media--standalone.is-dialog-trigger')) {
+      event.preventDefault();
+      openMedia({ kind: 'video', src: event.target.dataset.mediaSrc, opener: event.target });
+      return;
+    }
     if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.reader-content img[data-reader-zoomable]')) {
       event.preventDefault();
-      openMedia({ kind: 'image', src: event.target.currentSrc || event.target.src });
+      openMedia({ kind: 'image', src: event.target.currentSrc || event.target.src, opener: event.target });
     }
   });
 
   const closeDialog = () => {
     if (!dialog) return;
-
-    if (dialogVideo) {
-      dialogVideo.pause();
-      dialogVideo.removeAttribute('src');
-      dialogVideo.load();
-      dialogVideo.hidden = true;
-    }
-    if (dialogImage) {
-      dialogImage.removeAttribute('src');
-      dialogImage.hidden = true;
-    }
     if (dialog.open) dialog.close();
   };
 
@@ -497,15 +874,11 @@
     if (event.target === dialog || event.target.matches('.reader-dialog-stage')) closeDialog();
   });
   dialog?.addEventListener('close', () => {
-    if (dialogVideo) {
-      dialogVideo.pause();
-      dialogVideo.removeAttribute('src');
-      dialogVideo.load();
-      dialogVideo.hidden = true;
-    }
-    if (dialogImage) {
-      dialogImage.removeAttribute('src');
-      dialogImage.hidden = true;
+    resetDialogMedia();
+    const focusTarget = lastMediaTrigger;
+    lastMediaTrigger = null;
+    if (focusTarget?.isConnected) {
+      requestAnimationFrame(() => focusTarget.focus({ preventScroll: true }));
     }
   });
 

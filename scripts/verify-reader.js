@@ -8,11 +8,17 @@ const { startViewer } = require('../src/viewer/server');
 
 async function main() {
   const root = path.resolve(__dirname, '..');
-  const libraryRoot = path.join(root, 'data', 'tmp', 'reader-fixture-library');
+  const keepFixture = process.env.FEISHU_NOTES_VERIFY_KEEP_FIXTURE === '1';
+  const libraryRoot = path.join(
+    root,
+    'data',
+    'tmp',
+    keepFixture ? `reader-fixture-library-${process.pid}` : 'reader-fixture-library'
+  );
   const folder = 'reader-layout-fixture';
   const archiveDir = path.join(libraryRoot, folder);
 
-  fs.rmSync(libraryRoot, { recursive: true, force: true });
+  if (!keepFixture) fs.rmSync(libraryRoot, { recursive: true, force: true });
   fs.mkdirSync(path.join(archiveDir, 'assets', 'images'), { recursive: true });
 
   const tinyPng = Buffer.from(
@@ -162,6 +168,47 @@ async function main() {
       { id: '206', className: 'docx-future-unknown-block', text: '未来 Block 降级文本', html: '', media: [], table: null },
       { id: '207', className: 'docx-ordered-block', text: '1.\n编号正文同行', html: '', media: [], table: null },
       {
+        id: '208',
+        className: 'docx-code-block',
+        text: [
+          '- 转化五步链',
+          '  - ① 制造问题',
+          '    - 反常识断言',
+          '    - 场景锚定',
+          '  - ② 命名敌人',
+          '    - 让抽象问题可传播',
+          '  - ③ 给出后果',
+          '    - 身体与体面代价',
+          '  - ④ 数字收口',
+          '    - 数据与检测建立确定性',
+          '  - ⑤ 行动与机制',
+          '    - 零门槛动作 + 机制收口',
+        ].join('\n'),
+        html: '',
+        media: [],
+        table: null,
+      },
+      {
+        id: '209',
+        className: 'docx-code-block',
+        text: [
+          '- 爆量效率分层',
+          '  - 高爆量层 · 必做',
+          '    - F1 手部操作+口播：约55% → 单位产能最高',
+          '    - F5 菌种拟人自白：5% → 命中率高',
+          '    - S2 反常识脚本：18% → 全部进入爆量池',
+          '  - 中量级层 · 择优做',
+          '    - F2 无口播字幕：20% → 成本低',
+          '    - F3 双人冲突：8% → 大促效率高',
+          '  - 低效层 · 避坑',
+          '    - F8 纯图文字：3% → 不适合转化',
+          '    - 品宣向：<2% → 与转化逻辑背离',
+        ].join('\n'),
+        html: '',
+        media: [],
+        table: null,
+      },
+      {
         id: '301',
         className: 'docx-table-block',
         text: '',
@@ -177,6 +224,89 @@ async function main() {
             { tag: 'td', text: '竖屏', colspan: 1, rowspan: 1, media: [{ url: 'fixture:table-portrait' }] },
             { tag: 'td', text: '横屏', colspan: 1, rowspan: 1, media: [{ url: 'fixture:table-landscape' }] },
             { tag: 'td', text: '图片', colspan: 1, rowspan: 1, media: [{ url: 'fixture:table-image' }] },
+          ],
+        ],
+      },
+      {
+        id: '302',
+        className: 'docx-table-block',
+        text: '',
+        html: '',
+        media: [],
+        table: [
+          [
+            { tag: 'td', text: '段落', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '时间', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '文案模板', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '画面镜头', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '字幕规则', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '配音', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: 'BGM', colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: '开篇', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '0–3s', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '这是一个需要自动换行的长文案模板，用来验证宽表不会依赖横向滚动条。', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '特写镜头配合手部动作，同时保留足够空间给主体和文字信息。', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '关键词放大并保持两行以内', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '急促', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '低频', colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: '实证', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '14–22s', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '数字与检测报告同时出现，文本较长但必须在当前可用宽度内正常换行。', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '推进镜头靠近产品标签，再切到检测报告局部。', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '数字单独强调', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '稳定', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '明快', colspan: 1, rowspan: 1, media: [] },
+          ],
+        ],
+      },
+      {
+        id: '303',
+        className: 'docx-table-block',
+        text: '',
+        html: '',
+        media: [],
+        table: [
+          [
+            { tag: 'td', text: '指标', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '结果', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '状态', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: '点击率', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '12.4%', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '高', colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: '转化率', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '4.8%', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '中', colspan: 1, rowspan: 1, media: [] },
+          ],
+        ],
+      },
+      {
+        id: '304',
+        className: 'docx-table-block',
+        text: '',
+        html: '',
+        media: [],
+        table: [
+          [
+            { tag: 'td', text: '渠道', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '曝光', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '点击', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '转化', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '备注', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: '直播间', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '12000', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '620', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '84', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '主力', colspan: 1, rowspan: 1, media: [] },
           ],
         ],
       },
@@ -454,6 +584,13 @@ async function main() {
     assert.ok(chapterMobile.selected.includes('00-start'));
 
     await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.addInitScript(() => {
+      window.__readerPlayCalls = 0;
+      HTMLMediaElement.prototype.play = function playForReaderVerification() {
+        window.__readerPlayCalls += 1;
+        return Promise.resolve();
+      };
+    });
     const url = `http://127.0.0.1:${port}/note/${encodeURIComponent(folder)}/`;
     const response = await page.goto(url, { waitUntil: 'networkidle' });
     assert.strictEqual(response.status(), 200);
@@ -493,6 +630,14 @@ async function main() {
         tableTriggerCount: tableTriggers.length,
         maxTableTriggerHeight: Math.max(0, ...tableTriggers.map(item => Math.round(item.getBoundingClientRect().height))),
         tableVideos: document.querySelectorAll('table video').length,
+        tableFits: [...document.querySelectorAll('.reader-table-wrap')].every(item => item.scrollWidth <= item.clientWidth + 1),
+        compactTable: rect('.reader-table-wrap--compact'),
+        standardTable: rect('.reader-table-wrap--standard'),
+        wideTableCount: document.querySelectorAll('.reader-table-wrap--wide').length,
+        inferredHeaderRows: document.querySelectorAll('.reader-table-head-row.is-inferred').length,
+        structuredFlowSteps: document.querySelectorAll('.reader-structured-flow-step').length,
+        structuredTierGroups: document.querySelectorAll('.reader-tier-group').length,
+        standaloneVideoTriggers: document.querySelectorAll('.reader-media--standalone.is-dialog-trigger').length,
         fallbackBlocks: document.querySelectorAll('.reader-block--fallback .reader-fallback').length,
         zoomableImages: document.querySelectorAll('.reader-content img[data-reader-zoomable]').length,
         paper: {
@@ -532,6 +677,15 @@ async function main() {
     assert.strictEqual(desktop1920.tableTriggerCount, 3);
     assert.ok(desktop1920.maxTableTriggerHeight <= 130);
     assert.strictEqual(desktop1920.tableVideos, 0);
+    assert.strictEqual(desktop1920.tableFits, true);
+    assert.ok(desktop1920.compactTable.width >= 420 && desktop1920.compactTable.width <= 820);
+    assert.ok(desktop1920.standardTable.width > desktop1920.compactTable.width);
+    assert.ok(desktop1920.standardTable.width <= 1080);
+    assert.strictEqual(desktop1920.wideTableCount, 2);
+    assert.strictEqual(desktop1920.inferredHeaderRows, 1);
+    assert.strictEqual(desktop1920.structuredFlowSteps, 5);
+    assert.strictEqual(desktop1920.structuredTierGroups, 3);
+    assert.ok(desktop1920.standaloneVideoTriggers >= 4);
     assert.strictEqual(desktop1920.fallbackBlocks, 1);
     assert.ok(desktop1920.zoomableImages >= 1);
     assert.ok(desktop1920.paper.backgroundColor.includes('0, 0, 0, 0'));
@@ -541,7 +695,7 @@ async function main() {
     assert.strictEqual(desktop1920.headingEnhancement.borderBottomWidth, '1px');
     assert.strictEqual(desktop1920.headingEnhancement.backgroundImage, 'none');
     assert.strictEqual(desktop1920.headingEnhancement.accentWidth, '72px');
-    assert.deepStrictEqual(desktop1920.tableHeaders, ['媒体类型', '画幅', '参考素材']);
+    assert.deepStrictEqual(desktop1920.tableHeaders.slice(0, 3), ['媒体类型', '画幅', '参考素材']);
     assert.deepStrictEqual(desktop1920.orderedRows[0], { marker: '1.', content: '编号正文同行', height: desktop1920.orderedRows[0].height });
     assert.ok(desktop1920.orderedRows[0].height < 60);
     assert.ok(Math.abs(desktop1920.contentGutter - 80) <= 1);
@@ -596,6 +750,29 @@ async function main() {
     assert.ok(collapsed.mainLeft < mainLeftBeforeCollapse);
     await page.click('[data-toc-collapse]');
 
+    const standaloneVideo = page.locator('.reader-media--standalone.is-dialog-trigger').first();
+    await standaloneVideo.click();
+    const videoDialog = await page.evaluate(() => {
+      const dialog = document.querySelector('[data-media-dialog]');
+      const video = dialog.querySelector('video');
+      return {
+        open: dialog.open,
+        videoVisible: !video.hidden,
+        imageVisible: !dialog.querySelector('img').hidden,
+        playCalls: window.__readerPlayCalls || 0,
+        background: getComputedStyle(dialog).backgroundColor,
+        backdrop: getComputedStyle(dialog, '::backdrop').backgroundColor,
+      };
+    });
+    assert.strictEqual(videoDialog.open, true);
+    assert.strictEqual(videoDialog.videoVisible, true);
+    assert.strictEqual(videoDialog.imageVisible, false);
+    assert.ok(videoDialog.playCalls >= 1);
+    assert.ok(videoDialog.background.includes('0, 0, 0, 0'));
+    assert.ok(videoDialog.backdrop.includes('0, 0, 0, 0'));
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('[data-media-dialog]').open);
+
     const standaloneImage = page.locator('.reader-content img[data-reader-zoomable]').first();
     await standaloneImage.click();
     const imageDialog = await page.evaluate(() => {
@@ -607,6 +784,7 @@ async function main() {
         imageVisible: !image.hidden,
         videoVisible: !dialog.querySelector('video').hidden,
         background: style.backgroundColor,
+        backdrop: getComputedStyle(dialog, '::backdrop').backgroundColor,
         borderTopWidth: style.borderTopWidth,
         borderRadius: style.borderRadius,
       };
@@ -614,10 +792,12 @@ async function main() {
     assert.strictEqual(imageDialog.open, true);
     assert.strictEqual(imageDialog.imageVisible, true);
     assert.strictEqual(imageDialog.videoVisible, false);
-    assert.ok(imageDialog.background.includes('0, 0, 0'));
+    assert.ok(imageDialog.background.includes('0, 0, 0, 0'));
+    assert.ok(imageDialog.backdrop.includes('0, 0, 0, 0'));
     assert.strictEqual(imageDialog.borderTopWidth, '0px');
     assert.strictEqual(imageDialog.borderRadius, '0px');
-    await page.click('[data-dialog-close]');
+    await page.locator('.reader-dialog-stage').click({ position: { x: 6, y: 6 } });
+    await page.waitForFunction(() => !document.querySelector('[data-media-dialog]').open);
 
     const viewports = [
       { width: 1440, height: 900, mobileToc: false },
@@ -629,15 +809,20 @@ async function main() {
     for (const viewport of viewports) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.waitForTimeout(80);
-      const result = await page.evaluate(() => ({
-        width: innerWidth,
-        pageOverflow: document.documentElement.scrollWidth > innerWidth,
-        tocToggleVisible: getComputedStyle(document.querySelector('.reader-toc-toggle')).display !== 'none',
-        tableScrollable: [...document.querySelectorAll('.reader-table-wrap')].every(table => table.scrollWidth >= table.clientWidth),
-      }));
+      const result = await page.evaluate(() => {
+        const firstCard = document.querySelector('.reader-smart-table tbody>tr:not(.reader-table-head-row)');
+        return {
+          width: innerWidth,
+          pageOverflow: document.documentElement.scrollWidth > innerWidth,
+          tocToggleVisible: getComputedStyle(document.querySelector('.reader-toc-toggle')).display !== 'none',
+          tableFits: [...document.querySelectorAll('.reader-table-wrap')].every(table => table.scrollWidth <= table.clientWidth + 1),
+          tableCardMode: firstCard ? getComputedStyle(firstCard).display === 'block' : false,
+        };
+      });
       assert.strictEqual(result.pageOverflow, false);
       assert.strictEqual(result.tocToggleVisible, viewport.mobileToc);
-      assert.strictEqual(result.tableScrollable, true);
+      assert.strictEqual(result.tableFits, true);
+      assert.strictEqual(result.tableCardMode, viewport.width <= 900);
       responsive.push(result);
     }
 
@@ -645,7 +830,7 @@ async function main() {
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));
-    fs.rmSync(libraryRoot, { recursive: true, force: true });
+    if (!keepFixture) fs.rmSync(libraryRoot, { recursive: true, force: true });
   }
 }
 

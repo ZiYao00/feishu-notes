@@ -80,8 +80,8 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Reader rendering must respect media context: standalone media and table-cell media are different layout cases.
 - Standalone video must preserve source aspect ratio with viewport bounds; table-cell media must remain compact and must not expand table rows into full-size players.
 - Multiple media items may form a grid only when they belong to the same source media block. Never regroup media across block boundaries.
-- Local images are size-bounded in the Reader and may open in the shared cinema lightbox.
-- Wide tables must scroll inside their own container and must not create page-level horizontal overflow.
+- Local images and standalone/table-cell videos use one shared transparent media dialog. Explicit video activation starts playback; Escape or a blank-stage click closes the dialog and returns focus to the opener.
+- Reader tables use content-aware width modes: compact short tables shrink to their natural content width, standard tables use a bounded reading width, and wide/media-heavy tables use the available Reader canvas. Column weighting and text wrapping must keep desktop tables free of horizontal scrolling; narrow screens become labeled record cards.
 - Desktop Reader width is user-controlled through the TOC/content splitter; do not reintroduce a hard-coded prose width such as 760px.
 - Splitter behavior must remain keyboard accessible, locally persistent, double-click resettable, and disabled in drawer/mobile layout.
 - Reading-enhancement CSS may style headings, lists, links, tables, quotes, code and media groups, but must not alter source block order or semantics.
