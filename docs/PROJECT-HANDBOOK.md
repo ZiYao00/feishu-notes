@@ -84,7 +84,7 @@ Viewer：
 - 只读取 `library/`。
 - 不要求用户保持飞书登录。
 - 使用统一 Reader Shell + 内容上下文渲染，而不是把用户直接跳转到裸 `article.html`。
-- 长文提供 TOC、阅读进度、明暗主题、桌面 TOC 折叠和窄屏目录抽屉。
+- 长文提供 TOC、阅读进度、明暗主题、桌面 TOC 折叠和窄屏目录抽屉。TOC 必须是当前 Reader 页内锚点导航：点击后保持当前 `/note/` 路径，按 Sticky Topbar 偏移定位，并由 ScrollSpy 随手动滚动更新 Active；归档 `<base>` 只能服务媒体相对路径，不能把 TOC 导向 `/library/`。
 - Desktop 在 TOC 与正文之间提供可拖动 Splitter：支持鼠标拖动、键盘左右键、双击恢复默认，并在本机记忆目录宽度。
 - Reader 正文不使用固定 760px；桌面端采用约 880–960px 的自适应阅读列，表格和媒体等宽内容继续使用 Splitter 调整后剩余的安全空间，并共享左基准线。
 - 取消整块白色 Paper 背景；视觉层次由章节、表格、引用、代码、链接、列表和媒体组的局部 CSS 增强建立。
@@ -110,7 +110,8 @@ Explain 是可选能力，不改变归档主流程：
 - 原始 Markdown / HTML / `archive.json` / `assets/` 继续作为 Source of Truth；
 - 派生教学内容只放在 `library/<article>/explain/`，不把自定义字段写回 `archive.json`；
 - Viewer 只有在 `explain/chapters/manifest.json` 存在至少一个 `ready` 且 Markdown 文件实际存在的章节时，才显示学习入口；
-- 首页以“进入深度拆解”为主入口、“查看原始文章”为次入口；`/explain/<folder>/` 继续作为兼容路由并直接进入第一个可读章节，不再经过 Course Map / Lesson Landing；
+- 首页以“进入深度拆解”为主入口、“查看原始文章”为次入口；`/explain/<folder>/` 直接渲染所有 `ready` 章节为一篇连续长页面，不再经过 Course Map、Lesson Landing 或上一章/下一章分页；
+- 章节 Markdown 继续按文件拆分维护，但桌面左侧章节导航和窄屏章节选择都只做当前页面锚点滚动，并由 ScrollSpy 同步当前章节；旧 `?chapter=<id>` 链接重定向到对应 `#chapter-<id>` 以兼容历史收藏；
 - 公开内容来自 `explain/chapters/`；历史 `explain/lessons/`、Evidence Cases、ASR 与 Frame 数据属于内部素材，不进入普通导航；
 - `explain/manifest.json` 保存原文 `savedAt` 与 SHA-256 指纹，原归档更新后应提示深度拆解重新复核；
 - 原文深度拆解默认从原文的观点、证据、技术路线、数据边界与案例结构出发。结构清晰的报告可沿用原主顺序；现场记录/碎片资料允许按概念与决策关系重组，但必须保留来源边界，避免教师式“怎么学/先记住”口吻。并列、因果、对比、数据、分类与案例使用不同视觉语义组件；完整规范见 `docs/EXPLAIN-WORKFLOW.md`；

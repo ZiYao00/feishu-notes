@@ -302,16 +302,20 @@ function isSpecialLine(line, nextLine) {
     (trimmed.includes('|') && isTableSeparator(nextLine || ''));
 }
 
-function renderMarkdown(markdown) {
+function renderMarkdown(markdown, options = {}) {
   const lines = String(markdown || '').replace(/\r\n/g, '\n').split('\n');
   const out = [];
+  const fragment = options.fragment === true;
+  const headingPrefix = String(options.headingPrefix || 'chapter')
+    .replace(/[^A-Za-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'chapter';
   let index = 0;
   let headingIndex = 0;
   let articleTitleRendered = false;
 
   function nextHeadingId() {
     headingIndex += 1;
-    return 'chapter-heading-' + String(headingIndex).padStart(2, '0');
+    return headingPrefix + '-heading-' + String(headingIndex).padStart(2, '0');
   }
 
   while (index < lines.length) {
@@ -349,9 +353,13 @@ function renderMarkdown(markdown) {
       const title = renderInline(heading[2].trim());
       if (level === 1 && !articleTitleRendered) {
         articleTitleRendered = true;
-        out.push('<h1 class="reader-article-title">' + title + '</h1>');
+        if (fragment) {
+          out.push('<h2 class="reader-article-title explain-section-title">' + title + '</h2>');
+        } else {
+          out.push('<h1 class="reader-article-title">' + title + '</h1>');
+        }
       } else {
-        const outputLevel = level === 1 ? 2 : level;
+        const outputLevel = fragment ? Math.min(4, level + 1) : (level === 1 ? 2 : level);
         const id = nextHeadingId();
         out.push('<section class="reader-block reader-block--heading"><h' + outputLevel + ' id="' + id + '">' + title + '</h' + outputLevel + '></section>');
       }
@@ -425,7 +433,9 @@ function renderMarkdown(markdown) {
     out.push('<div class="reader-block reader-block--text"><p>' + renderInline(paragraph.join(' ')) + '</p></div>');
   }
 
-  const html = '<article class="reader-article explain-chapter-article" data-reader-article>' + out.join('\n') + '</article>';
+  const html = fragment
+    ? out.join('\n')
+    : '<article class="reader-article explain-chapter-article" data-reader-article>' + out.join('\n') + '</article>';
   return sanitizeHtml(html, {
     allowedTags: [
       'article', 'section', 'div', 'span', 'small', 'h1', 'h2', 'h3', 'h4',
@@ -447,59 +457,66 @@ function renderThemeControl() {
   return '<button type="button" class="reader-action reader-theme-toggle" data-theme-toggle aria-label="切换到暗色模式" title="切换到暗色模式" aria-pressed="false"></button>';
 }
 
+function safeDomId(value) {
+  return String(value || 'chapter')
+    .trim()
+    .replace(/[^A-Za-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'chapter';
+}
+
+function chapterAnchorId(chapter) {
+  return 'chapter-' + safeDomId(chapter?.id || chapter?.number || chapter?.title || 'chapter');
+}
+
 function renderChapterReader(options) {
   const archiveManifest = options.archiveManifest;
   const articleDir = options.articleDir;
   const chapterManifest = options.chapterManifest;
   const explainManifest = options.explainManifest;
   const folder = options.folder;
-  const requestedChapterId = options.requestedChapterId;
 
   const chapters = chapterManifest.chapters.map(chapter => chapterState(articleDir, chapter));
   const readyChapters = chapters.filter(chapter => chapter.available);
   if (!readyChapters.length) return null;
 
-  const selected = readyChapters.find(chapter => chapter.id === requestedChapterId) || readyChapters[0];
-  const readyIndex = readyChapters.findIndex(chapter => chapter.id === selected.id);
-  const previous = readyIndex > 0 ? readyChapters[readyIndex - 1] : null;
-  const next = readyIndex >= 0 && readyIndex < readyChapters.length - 1 ? readyChapters[readyIndex + 1] : null;
-
-  const article = renderMarkdown(fs.readFileSync(selected.file, 'utf8'));
   const encodedFolder = encodeURIComponent(folder);
   const source = sourceState(articleDir, archiveManifest, explainManifest);
   const base = '/explain/' + encodedFolder + '/';
-  const hrefFor = chapter => base + '?chapter=' + encodeURIComponent(chapter.id);
+  const hrefFor = chapter => base + '#' + chapterAnchorId(chapter);
 
-  const nav = readyChapters.map(chapter => {
-    const active = chapter.id === selected.id;
-    return '<a class="chapter-nav-item ' + (active ? 'is-active' : '') + '" href="' + hrefFor(chapter) + '" ' + (active ? 'aria-current="page"' : '') + ' title="' + escapeHtml(chapter.title || chapter.label || chapter.id) + '">' +
+  const nav = readyChapters.map((chapter, index) => {
+    const active = index === 0;
+    return '<a class="chapter-nav-item ' + (active ? 'is-active' : '') + '" href="' + hrefFor(chapter) + '" data-chapter-link="' + escapeHtml(chapter.id || '') + '" ' + (active ? 'aria-current="location"' : '') + ' title="' + escapeHtml(chapter.title || chapter.label || chapter.id) + '">' +
       '<span class="chapter-nav-number">' + escapeHtml(chapter.number || '') + '</span>' +
       '<span class="chapter-nav-copy"><strong>' + escapeHtml(chapter.label || chapter.title || chapter.id) + '</strong></span></a>';
   }).join('');
 
-  const mobileOptions = readyChapters.map(chapter => {
-    const selectedAttr = chapter.id === selected.id ? ' selected' : '';
+  const mobileOptions = readyChapters.map((chapter, index) => {
+    const selectedAttr = index === 0 ? ' selected' : '';
     return '<option value="' + hrefFor(chapter) + '"' + selectedAttr + '>' + escapeHtml(chapter.number || '') + ' · ' + escapeHtml(chapter.label || chapter.title || chapter.id) + '</option>';
   }).join('');
 
-  const previousHtml = previous
-    ? '<a class="chapter-pager-link" href="' + hrefFor(previous) + '"><span>← 上一章</span><strong>' + escapeHtml(previous.label || previous.title) + '</strong></a>'
-    : '<span class="chapter-pager-link is-disabled"><span>← 上一章</span><strong>已经是第一章</strong></span>';
-
-  const nextHtml = next
-    ? '<a class="chapter-pager-link is-next" href="' + hrefFor(next) + '"><span>下一章 →</span><strong>' + escapeHtml(next.label || next.title) + '</strong></a>'
-    : '<span class="chapter-pager-link is-next is-disabled"><span>下一章 →</span><strong>已到最后一章</strong></span>';
+  const sections = readyChapters.map(chapter => {
+    const anchor = chapterAnchorId(chapter);
+    const content = renderMarkdown(fs.readFileSync(chapter.file, 'utf8'), {
+      fragment: true,
+      headingPrefix: anchor,
+    });
+    return '<section class="explain-chapter-section" id="' + anchor + '" data-chapter-section data-chapter-id="' + escapeHtml(chapter.id || '') + '">' +
+      content +
+      '</section>';
+  }).join('\n');
 
   const staleMeta = source.stale ? '<span class="reader-status partial">原文已更新，待复核</span>' : '';
-  const chapterMeta = '原文深度拆解 · ' + escapeHtml(selected.number || String(readyIndex + 1).padStart(2, '0')) + ' / ' + String(readyChapters.length).padStart(2, '0');
+  const chapterMeta = '原文深度拆解 · ' + readyChapters.length + ' 章';
 
   return '<!doctype html><html lang="zh-CN"><head>' +
     '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<base href="/library/' + encodedFolder + '/">' +
-    '<title>' + escapeHtml(selected.title || selected.label || selected.id) + ' · ' + escapeHtml(chapterManifest.title || '原文深度拆解') + '</title>' +
+    '<title>' + escapeHtml(chapterManifest.title || '原文深度拆解') + '</title>' +
     '<script src="/_viewer/theme-init.js"></script>' +
     '<link rel="stylesheet" href="/_viewer/reader.css"><script src="/_viewer/reader.js" defer></script>' +
-    '</head><body class="explain-chapter-reader">' +
+    '</head><body class="explain-chapter-reader explain-single-page">' +
     '<header class="reader-topbar">' +
     '<a class="reader-back" href="/"><span aria-hidden="true">←</span><span>笔记库</span></a>' +
     '<div class="reader-titlebar"><div class="reader-titlebar-title">' + escapeHtml(archiveManifest.title || folder) + '</div>' +
@@ -509,9 +526,9 @@ function renderChapterReader(options) {
     '<div class="chapter-mobile-nav"><label for="chapter-select">章节</label><select id="chapter-select" data-chapter-select aria-label="选择拆解章节">' + mobileOptions + '</select></div>' +
     '<div class="chapter-reader-layout"><aside class="chapter-sidebar" aria-label="拆解章节">' +
     '<div class="chapter-sidebar-head"><strong>' + escapeHtml(chapterManifest.title || '原文深度拆解') + '</strong></div>' +
-    '<nav class="chapter-nav">' + nav + '</nav></aside>' +
-    '<main class="chapter-main"><div class="reader-paper"><div class="reader-content">' + article +
-    '<nav class="chapter-pager" aria-label="章节翻页">' + previousHtml + nextHtml + '</nav>' +
+    '<nav class="chapter-nav" data-chapter-nav>' + nav + '</nav></aside>' +
+    '<main class="chapter-main"><div class="reader-paper"><div class="reader-content">' +
+    '<article class="reader-article explain-chapter-article" data-reader-article>' + sections + '</article>' +
     '</div></div></main></div>' +
     '<dialog class="reader-dialog" data-media-dialog><div class="reader-dialog-bar"><button class="reader-dialog-close" type="button" data-dialog-close aria-label="关闭媒体预览">关闭</button></div><div class="reader-dialog-stage"><video controls playsinline preload="metadata" hidden></video><img alt="" hidden></div></dialog>' +
     '</body></html>';
@@ -522,4 +539,5 @@ module.exports = {
   getChapterSummary,
   renderChapterReader,
   renderThemeControl,
+  chapterAnchorId,
 };

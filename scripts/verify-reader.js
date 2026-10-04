@@ -779,14 +779,22 @@ async function main() {
     const explainUrl = `http://127.0.0.1:${port}/explain/${encodeURIComponent(folder)}/`;
     const explainResponse = await page.goto(explainUrl, { waitUntil: 'networkidle' });
     assert.strictEqual(explainResponse.status(), 200);
-    assert.strictEqual(await page.locator('body.explain-chapter-reader').count(), 1);
+    assert.strictEqual(await page.locator('body.explain-chapter-reader.explain-single-page').count(), 1);
     assert.strictEqual(await page.locator('.chapter-nav-item').count(), 2);
     assert.strictEqual(await page.locator('.chapter-nav-item.is-active').count(), 1);
     assert.strictEqual(await page.locator('.chapter-nav-item.is-disabled').count(), 0);
+    assert.strictEqual(await page.locator('.explain-chapter-section').count(), 2);
+    assert.strictEqual(await page.locator('.chapter-pager').count(), 0);
     assert.strictEqual(await page.locator('.explain-lesson-card').count(), 0);
     assert.strictEqual(await page.locator('.explain-stat-grid').count(), 0);
     assert.strictEqual(await page.locator('.reader-toc').count(), 0);
-    assert.strictEqual((await page.locator('.reader-article-title').innerText()).includes('00｜从这里开始'), true);
+    assert.strictEqual(await page.locator('.reader-article-title').count(), 2);
+    assert.strictEqual((await page.locator('.reader-article-title').nth(0).innerText()).includes('00｜从这里开始'), true);
+    assert.strictEqual((await page.locator('.reader-article-title').nth(1).innerText()).includes('01｜爆单系统'), true);
+    assert.strictEqual(await page.evaluate(() => {
+      const ids = [...document.querySelectorAll('[id]')].map(node => node.id).filter(Boolean);
+      return ids.length - new Set(ids).size;
+    }), 0);
     assert.strictEqual(await page.locator('.learning-hero').count(), 1);
     assert.strictEqual(await page.locator('.learning-split').count(), 1);
     assert.strictEqual(await page.locator('.learning-metric').count(), 2);
@@ -805,7 +813,7 @@ async function main() {
     assert.strictEqual(await page.locator('.learning-case-anatomy li').count(), 2);
     assert.strictEqual(await page.locator('.learning-case-constraints').count(), 1);
     assert.strictEqual(await page.locator('.learning-case--prompt > .reader-prompt-card--embedded').count(), 1);
-    assert.strictEqual(await page.locator('.reader-article > .reader-prompt-card').count(), 1);
+    assert.strictEqual(await page.locator('.explain-chapter-section > .reader-prompt-card').count(), 1);
     assert.strictEqual(await page.locator('.reader-prompt-card').count(), 2);
     assert.strictEqual(await page.locator('.reader-prompt-card.is-collapsed').count(), 1);
     assert.strictEqual(await page.locator('.reader-prompt-action').count(), 3);
@@ -850,12 +858,55 @@ async function main() {
     assert.strictEqual(await page.evaluate(() => document.documentElement.getAttribute('data-theme')), 'light');
     assert.strictEqual(await page.evaluate(() => localStorage.getItem('feishu-notes-theme')), 'light');
 
+    await page.evaluate(() => { window.__singlePageSentinel = 17; });
+    const secondChapterLink = page.locator('.chapter-nav-item').nth(1);
+    const secondChapterHref = await secondChapterLink.getAttribute('href');
+    await secondChapterLink.click();
+    await page.waitForFunction(() => location.hash === '#chapter-01-system' && scrollY > 0);
+    await page.waitForFunction(() => {
+      const target = document.getElementById('chapter-01-system');
+      const topbar = document.querySelector('.reader-topbar')?.getBoundingClientRect().height || 0;
+      return target && target.getBoundingClientRect().top <= topbar + 36;
+    });
+    const chapterScroll = await page.evaluate(() => {
+      const target = document.getElementById('chapter-01-system');
+      const topbar = document.querySelector('.reader-topbar')?.getBoundingClientRect().height || 0;
+      return {
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash,
+        scrollY,
+        targetTop: target?.getBoundingClientRect().top || 0,
+        topbar,
+        activeHref: document.querySelector('.chapter-nav-item.is-active')?.getAttribute('href') || '',
+        sentinel: window.__singlePageSentinel || 0,
+        sections: document.querySelectorAll('.explain-chapter-section').length,
+        tables: document.querySelectorAll('.reader-content table').length,
+      };
+    });
+    assert.strictEqual(chapterScroll.pathname, new URL(explainUrl).pathname);
+    assert.strictEqual(chapterScroll.search, '');
+    assert.strictEqual(chapterScroll.hash, '#chapter-01-system');
+    assert.strictEqual(chapterScroll.sentinel, 17);
+    assert.strictEqual(chapterScroll.sections, 2);
+    assert.strictEqual(chapterScroll.tables, 1);
+    assert.ok(chapterScroll.targetTop >= chapterScroll.topbar + 8);
+    assert.ok(chapterScroll.targetTop <= chapterScroll.topbar + 36, JSON.stringify(chapterScroll));
+    assert.ok(chapterScroll.activeHref.endsWith('#chapter-01-system'));
+    assert.ok(secondChapterHref.endsWith('#chapter-01-system'));
+
     const chapterOneUrl = explainUrl + '?chapter=01-system';
     const chapterOneResponse = await page.goto(chapterOneUrl, { waitUntil: 'networkidle' });
     assert.strictEqual(chapterOneResponse.status(), 200);
-    assert.strictEqual((await page.locator('.reader-article-title').innerText()).includes('01｜爆单系统'), true);
-    assert.strictEqual(await page.locator('.reader-content table').count(), 1);
-    assert.strictEqual(await page.locator('.chapter-nav-item.is-active').getAttribute('href'), chapterOneUrl.replace(`http://127.0.0.1:${port}`, ''));
+    await page.waitForFunction(() => location.hash === '#chapter-01-system' && scrollY > 0);
+    await page.waitForFunction(() => {
+      const target = document.getElementById('chapter-01-system');
+      const topbar = document.querySelector('.reader-topbar')?.getBoundingClientRect().height || 0;
+      return target && target.getBoundingClientRect().top <= topbar + 36;
+    });
+    assert.ok(page.url().endsWith('/#chapter-01-system'));
+    assert.strictEqual(await page.locator('.explain-chapter-section').count(), 2);
+    assert.ok((await page.locator('.chapter-nav-item.is-active').getAttribute('href')).endsWith('#chapter-01-system'));
 
     const legacyLessonUrl = `http://127.0.0.1:${port}/explain/${encodeURIComponent(folder)}/00-overview/`;
     const legacyLessonResponse = await page.goto(legacyLessonUrl, { waitUntil: 'domcontentloaded' });
@@ -863,16 +914,44 @@ async function main() {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(explainUrl, { waitUntil: 'networkidle' });
-    const chapterMobile = await page.evaluate(() => ({
-      overflow: document.documentElement.scrollWidth > innerWidth,
-      sidebarDisplay: getComputedStyle(document.querySelector('.chapter-sidebar')).display,
-      mobileNavDisplay: getComputedStyle(document.querySelector('.chapter-mobile-nav')).display,
-      selected: document.querySelector('[data-chapter-select]')?.value || '',
-    }));
+    await page.evaluate(() => { window.__mobileSinglePageSentinel = 31; });
+    const mobileSelect = page.locator('[data-chapter-select]');
+    await mobileSelect.selectOption({ index: 1 });
+    await page.waitForFunction(() => location.hash === '#chapter-01-system' && scrollY > 0);
+    await page.waitForFunction(() => {
+      const target = document.getElementById('chapter-01-system');
+      const topbar = document.querySelector('.reader-topbar')?.getBoundingClientRect().height || 0;
+      const mobileNav = document.querySelector('.chapter-mobile-nav')?.getBoundingClientRect().height || 0;
+      return target && target.getBoundingClientRect().top <= topbar + mobileNav + 36;
+    });
+    const chapterMobile = await page.evaluate(() => {
+      const target = document.getElementById('chapter-01-system');
+      const topbar = document.querySelector('.reader-topbar')?.getBoundingClientRect().height || 0;
+      const mobileNav = document.querySelector('.chapter-mobile-nav')?.getBoundingClientRect().height || 0;
+      return {
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        sidebarDisplay: getComputedStyle(document.querySelector('.chapter-sidebar')).display,
+        mobileNavDisplay: getComputedStyle(document.querySelector('.chapter-mobile-nav')).display,
+        selected: document.querySelector('[data-chapter-select]')?.value || '',
+        hash: location.hash,
+        scrollY,
+        targetTop: target?.getBoundingClientRect().top || 0,
+        offset: topbar + mobileNav,
+        sentinel: window.__mobileSinglePageSentinel || 0,
+        tailSpace: getComputedStyle(document.documentElement).getPropertyValue('--reader-chapter-tail-space').trim(),
+        articlePaddingBottom: getComputedStyle(document.querySelector('.explain-chapter-article')).paddingBottom,
+        lastSectionHeight: Math.round(document.querySelector('.explain-chapter-section:last-child')?.getBoundingClientRect().height || 0),
+        maxScroll: document.documentElement.scrollHeight - innerHeight,
+      };
+    });
     assert.strictEqual(chapterMobile.overflow, false);
     assert.strictEqual(chapterMobile.sidebarDisplay, 'none');
     assert.notStrictEqual(chapterMobile.mobileNavDisplay, 'none');
-    assert.ok(chapterMobile.selected.includes('00-start'));
+    assert.ok(chapterMobile.selected.includes('#chapter-01-system'), JSON.stringify(chapterMobile));
+    assert.strictEqual(chapterMobile.hash, '#chapter-01-system');
+    assert.strictEqual(chapterMobile.sentinel, 31);
+    assert.ok(chapterMobile.targetTop >= chapterMobile.offset + 8);
+    assert.ok(chapterMobile.targetTop <= chapterMobile.offset + 36);
 
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.addInitScript(() => {
@@ -999,7 +1078,10 @@ async function main() {
     assert.ok(Math.abs(desktop1920.title.left - desktop1920.text.left) <= 1);
     assert.ok(Math.abs(desktop1920.text.left - desktop1920.table.left) <= 1);
     assert.ok(desktop1920.table.width > desktop1920.text.width + 250);
-    assert.deepStrictEqual(desktop1920.tocHrefs.slice(0, 2), ['#block-101', '#block-102']);
+    assert.ok(desktop1920.tocHrefs[0].startsWith('/note/'));
+    assert.ok(desktop1920.tocHrefs[0].endsWith('#block-101'));
+    assert.ok(desktop1920.tocHrefs[1].startsWith('/note/'));
+    assert.ok(desktop1920.tocHrefs[1].endsWith('#block-102'));
     assert.strictEqual(desktop1920.tocLinks, desktop1920.headings);
     assert.strictEqual(desktop1920.mediaGrid.count, 2);
     assert.ok(desktop1920.mediaGrid.columns.split(' ').length >= 2);
@@ -1044,6 +1126,42 @@ async function main() {
     assert.ok(desktop1920.orderedRows[0].height < 60);
     assert.ok(Math.abs(desktop1920.contentGutter - 80) <= 1);
     assert.strictEqual(desktop1920.pageOverflow, false);
+
+    await page.evaluate(() => { window.__noteSinglePageSentinel = 23; });
+    const noteSecondToc = page.locator('.reader-toc-list a').nth(1);
+    await noteSecondToc.click();
+    await page.waitForFunction(() => location.hash === '#block-102' && scrollY > 0);
+    await page.waitForFunction(() => {
+      const target = document.getElementById('block-102');
+      const topbar = document.querySelector('.reader-topbar')?.getBoundingClientRect().height || 0;
+      return target && target.getBoundingClientRect().top <= topbar + 36;
+    });
+    const noteScroll = await page.evaluate(() => {
+      const target = document.getElementById('block-102');
+      const topbar = document.querySelector('.reader-topbar')?.getBoundingClientRect().height || 0;
+      return {
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash,
+        scrollY,
+        targetTop: target?.getBoundingClientRect().top || 0,
+        topbar,
+        activeHref: document.querySelector('.reader-toc-list a.active')?.getAttribute('href') || '',
+        sentinel: window.__noteSinglePageSentinel || 0,
+      };
+    });
+    assert.strictEqual(noteScroll.pathname, new URL(url).pathname);
+    assert.strictEqual(noteScroll.search, '');
+    assert.strictEqual(noteScroll.hash, '#block-102');
+    assert.strictEqual(noteScroll.sentinel, 23);
+    assert.ok(noteScroll.targetTop >= noteScroll.topbar + 8);
+    assert.ok(noteScroll.targetTop <= noteScroll.topbar + 36);
+    assert.ok(noteScroll.activeHref.endsWith('#block-102'));
+    await page.evaluate(() => {
+      history.replaceState(null, '', location.pathname + location.search);
+      scrollTo(0, 0);
+    });
+    await page.waitForTimeout(80);
 
     const splitterBox = await page.locator('[data-reader-splitter]').boundingBox();
     await page.mouse.move(splitterBox.x + splitterBox.width / 2, splitterBox.y + 140);

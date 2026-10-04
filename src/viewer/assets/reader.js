@@ -49,8 +49,62 @@
   });
 
   const chapterSelect = document.querySelector('[data-chapter-select]');
+  const chapterNav = document.querySelector('[data-chapter-nav]');
+  const chapterSections = [...document.querySelectorAll('[data-chapter-section]')];
+  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+
+  const targetIdFromHref = href => {
+    if (!href) return '';
+    try {
+      const url = new URL(href, location.href);
+      return url.hash ? decodeURIComponent(url.hash.slice(1)) : '';
+    } catch {
+      const index = String(href).indexOf('#');
+      return index >= 0 ? String(href).slice(index + 1) : '';
+    }
+  };
+
+  const readerTopOffset = () => {
+    const topbarHeight = document.querySelector('.reader-topbar')?.getBoundingClientRect().height || 0;
+    const mobileNav = document.querySelector('.chapter-mobile-nav');
+    const mobileNavHeight = mobileNav && getComputedStyle(mobileNav).display !== 'none'
+      ? mobileNav.getBoundingClientRect().height
+      : 0;
+    return topbarHeight + mobileNavHeight + 18;
+  };
+
+  const scrollToReaderTarget = (targetId, options = {}) => {
+    const target = document.getElementById(targetId);
+    if (!target) return false;
+    const top = Math.max(0, scrollY + target.getBoundingClientRect().top - readerTopOffset());
+    const distance = Math.abs(top - scrollY);
+    const defaultBehavior =
+      prefersReducedMotion || distance > innerHeight * 3
+        ? 'auto'
+        : 'smooth';
+    const behavior = options.behavior || defaultBehavior;
+    if (behavior === 'auto') {
+      const previousScrollBehavior = root.style.scrollBehavior;
+      root.style.scrollBehavior = 'auto';
+      scrollTo({ top, behavior: 'auto' });
+      requestAnimationFrame(() => {
+        root.style.scrollBehavior = previousScrollBehavior;
+      });
+    } else {
+      scrollTo({ top, behavior });
+    }
+
+    if (options.history !== false) {
+      const nextUrl = location.pathname + location.search + '#' + targetId;
+      if (options.replace) history.replaceState(null, '', nextUrl);
+      else history.pushState(null, '', nextUrl);
+    }
+    return true;
+  };
+
   chapterSelect?.addEventListener('change', () => {
-    if (chapterSelect.value) location.href = chapterSelect.value;
+    const targetId = targetIdFromHref(chapterSelect.value);
+    if (targetId) scrollToReaderTarget(targetId);
   });
 
   const TOC_WIDTH_KEY = 'feishu-notes-toc-width';
@@ -164,7 +218,24 @@
 
   tocToggle?.addEventListener('click', () => body.classList.toggle('toc-open'));
   toc?.addEventListener('click', event => {
-    if (event.target.closest('a')) body.classList.remove('toc-open');
+    const link = event.target.closest('a[href*="#"]');
+    if (link) {
+      const targetId = targetIdFromHref(link.getAttribute('href'));
+      if (targetId && scrollToReaderTarget(targetId)) {
+        event.preventDefault();
+        toc.querySelectorAll('a.active').forEach(item => item.classList.remove('active'));
+        link.classList.add('active');
+      }
+      body.classList.remove('toc-open');
+    }
+  });
+
+  chapterNav?.addEventListener('click', event => {
+    const link = event.target.closest('a[href*="#"]');
+    if (!link) return;
+    const targetId = targetIdFromHref(link.getAttribute('href'));
+    if (!targetId || !scrollToReaderTarget(targetId)) return;
+    event.preventDefault();
   });
 
   const headings = [...document.querySelectorAll('.reader-content h2[id],.reader-content h3[id],.reader-content h4[id]')];
@@ -178,9 +249,13 @@
   const promptHeavy =
     rawCodeBlocks.length >= 4 &&
     longCodeCount >= Math.max(3, Math.ceil(rawCodeBlocks.length * 0.35));
+  const explainReader = body.classList.contains('explain-chapter-reader');
   const denseNote =
-    (headings.length >= 16 && headingRatio >= 0.25) ||
-    (promptHeavy && headings.length >= 8);
+    !explainReader &&
+    (
+      (headings.length >= 16 && headingRatio >= 0.25) ||
+      (promptHeavy && headings.length >= 8)
+    );
 
   body.classList.toggle('reader-dense-note', denseNote);
   body.classList.toggle('reader-prompt-heavy', promptHeavy);
@@ -219,7 +294,7 @@
     for (const heading of headings) {
       const role = headingRoles.get(heading.id) || 'major';
       const link = document.createElement('a');
-      link.href = '#' + heading.id;
+      link.setAttribute('href', location.pathname + location.search + '#' + heading.id);
       link.dataset.level = heading.tagName.slice(1);
       link.dataset.headingRole = role;
       link.classList.add(role === 'major' ? 'is-toc-primary' : 'is-toc-secondary');
@@ -254,15 +329,13 @@
 
   if (headings.length && tocList) {
     const tocLinks = [...tocList.querySelectorAll('a')];
-    const links = new Map(tocLinks.map(link => [link.getAttribute('href').slice(1), link]));
-    const observer = new IntersectionObserver(entries => {
-      const visible = entries
-        .filter(entry => entry.isIntersecting)
-        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-      if (!visible) return;
+    const links = new Map(tocLinks.map(link => [targetIdFromHref(link.getAttribute('href')), link]));
+
+    const setActiveTocHeading = heading => {
+      if (!heading?.id) return;
       for (const link of links.values()) link.classList.remove('active');
 
-      let active = links.get(visible.target.id) || null;
+      let active = links.get(heading.id) || null;
       if (
         denseNote &&
         tocList.classList.contains('is-primary-only') &&
@@ -273,8 +346,80 @@
         active = [...tocLinks.slice(0, activeIndex + 1)].reverse().find(link => link.classList.contains('is-toc-primary')) || active;
       }
       active?.classList.add('active');
-    }, { rootMargin: '-72px 0px -72% 0px', threshold: [0, 1] });
-    headings.forEach(heading => observer.observe(heading));
+    };
+
+    let tocScrollFrame = 0;
+    const updateActiveToc = () => {
+      tocScrollFrame = 0;
+      const marker = readerTopOffset() + 24;
+      let activeHeading = headings[0];
+      for (const heading of headings) {
+        if (heading.getBoundingClientRect().top <= marker) activeHeading = heading;
+        else break;
+      }
+      setActiveTocHeading(activeHeading);
+    };
+
+    const requestTocUpdate = () => {
+      if (tocScrollFrame) return;
+      tocScrollFrame = requestAnimationFrame(updateActiveToc);
+    };
+
+    addEventListener('scroll', requestTocUpdate, { passive: true });
+    addEventListener('resize', requestTocUpdate, { passive: true });
+    updateActiveToc();
+  }
+
+  if (chapterSections.length) {
+    const chapterLinks = [...(chapterNav?.querySelectorAll('a[href*="#"]') || [])];
+    const syncChapterTailSpace = () => {
+      const lastSection = chapterSections[chapterSections.length - 1];
+      const baseBottomPadding = innerWidth <= 700 ? 72 : 96;
+      const availableBelowAnchor = Math.max(0, innerHeight - readerTopOffset());
+      const required = Math.max(0, availableBelowAnchor - lastSection.getBoundingClientRect().height - baseBottomPadding);
+      root.style.setProperty('--reader-chapter-tail-space', Math.ceil(required) + 'px');
+    };
+
+    syncChapterTailSpace();
+
+    const setActiveChapter = section => {
+      if (!section?.id) return;
+      chapterLinks.forEach(link => {
+        const active = targetIdFromHref(link.getAttribute('href')) === section.id;
+        link.classList.toggle('is-active', active);
+        if (active) link.setAttribute('aria-current', 'location');
+        else link.removeAttribute('aria-current');
+      });
+
+      if (chapterSelect) {
+        const option = [...chapterSelect.options].find(item => targetIdFromHref(item.value) === section.id);
+        if (option && chapterSelect.value !== option.value) chapterSelect.value = option.value;
+      }
+    };
+
+    let chapterScrollFrame = 0;
+    const updateActiveChapter = () => {
+      chapterScrollFrame = 0;
+      const marker = readerTopOffset() + 24;
+      let active = chapterSections[0];
+      for (const section of chapterSections) {
+        if (section.getBoundingClientRect().top <= marker) active = section;
+        else break;
+      }
+      setActiveChapter(active);
+    };
+
+    const requestChapterUpdate = () => {
+      if (chapterScrollFrame) return;
+      chapterScrollFrame = requestAnimationFrame(updateActiveChapter);
+    };
+
+    addEventListener('scroll', requestChapterUpdate, { passive: true });
+    addEventListener('resize', () => {
+      syncChapterTailSpace();
+      requestChapterUpdate();
+    }, { passive: true });
+    updateActiveChapter();
   }
 
   const cleanBlockText = block =>
@@ -1329,7 +1474,53 @@
     progress.style.width = (value * 100).toFixed(2) + '%';
   };
 
+  const applyLocationHash = (behavior = 'auto') => {
+    const targetId = location.hash ? decodeURIComponent(location.hash.slice(1)) : '';
+    if (!targetId) return;
+    scrollToReaderTarget(targetId, { history: false, behavior });
+  };
+
   updateProgress();
   addEventListener('scroll', updateProgress, { passive: true });
   addEventListener('resize', updateProgress, { passive: true });
+  addEventListener('hashchange', () => applyLocationHash(prefersReducedMotion ? 'auto' : 'smooth'));
+  addEventListener('popstate', () => applyLocationHash('auto'));
+
+  if (location.hash) {
+    const initialHash = location.hash;
+    let initialHashSettling = true;
+    const reapplyInitialHash = () => {
+      if (!initialHashSettling || location.hash !== initialHash) return;
+      applyLocationHash('auto');
+    };
+    const stopInitialHashSettling = () => {
+      initialHashSettling = false;
+    };
+
+    ['wheel', 'touchstart', 'pointerdown', 'keydown'].forEach(type => {
+      addEventListener(type, stopInitialHashSettling, { once: true, passive: type !== 'keydown' });
+    });
+
+    document.querySelectorAll('video[src]').forEach(video => {
+      if (video.readyState >= 1) return;
+      video.addEventListener('loadedmetadata', () => requestAnimationFrame(reapplyInitialHash), { once: true });
+    });
+    document.querySelectorAll('img[src]').forEach(image => {
+      if (image.complete) return;
+      image.addEventListener('load', () => requestAnimationFrame(reapplyInitialHash), { once: true });
+    });
+
+    addEventListener('load', () => requestAnimationFrame(reapplyInitialHash), { once: true });
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => requestAnimationFrame(reapplyInitialHash)).catch(() => {});
+    }
+
+    requestAnimationFrame(() => requestAnimationFrame(reapplyInitialHash));
+    setTimeout(reapplyInitialHash, 400);
+    setTimeout(reapplyInitialHash, 1100);
+    setTimeout(() => {
+      reapplyInitialHash();
+      initialHashSettling = false;
+    }, 2400);
+  }
 })();

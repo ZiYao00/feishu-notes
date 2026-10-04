@@ -64,6 +64,7 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Public UI calls Explain **原文深度拆解**. Its job is to analyze source claims, evidence, structure, trade-offs and reusable cases; avoid teacher-note, study-instruction or editorial-process wording addressed to the reader.
 - `explain/manifest.json` must keep a source fingerprint so source updates can be detected instead of silently presenting stale deconstruction material.
 - Public Explain content is chapter-driven: `explain/chapters/manifest.json` + Markdown chapters. Only `status=ready` chapters with an existing file are user-visible.
+- Keep chapter Markdown as separate maintainable source files, but render every ready chapter in manifest order as one continuous public page. Desktop chapter navigation and the narrow-screen chapter selector must scroll within that page and synchronize active state; they must not paginate or reload chapters. Legacy `?chapter=<id>` links may redirect to the equivalent `#chapter-<id>` anchor.
 - Legacy `explain/lessons/`, Evidence Cases, ASR records, frames and other analysis artifacts are internal material; do not expose their counts or lists in normal navigation.
 - Video evidence uses archive `contentHash` (SHA-256) as the canonical identity. ASR, keyframes, cases and chapter citations must preserve that identity for traceability.
 - ASR output sidecars must record the content hash, canonical source video path, logical source occurrences, ASR service/model metadata, transcript and available segments.
@@ -94,7 +95,7 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Splitter behavior must remain keyboard accessible, locally persistent, double-click resettable, and disabled in drawer/mobile layout.
 - Reading-enhancement CSS may style headings, lists, links, tables, quotes, code and media groups, but must not alter source block order or semantics.
 - Unknown/future blocks must degrade conservatively: preserve available text or media instead of disappearing silently.
-- Heading navigation must use stable block ids rather than heading text so duplicate headings remain addressable.
+- Heading navigation must use stable block ids rather than heading text so duplicate headings remain addressable. Reader/Explain navigation is page-local: TOC/chapter links must not be resolved through the archive `<base>` into `/library/`. Clicking navigation updates the current hash and scroll position without a page reload, and ScrollSpy must keep the visible menu state synchronized with manual scrolling.
 - Browser Reader CSS is independent from Obsidian CSS. Do not copy or runtime-link external Obsidian snippets into the Viewer.
 - Optional `data/styles/reader.user.css` is a machine-local visual override only; keep it Git-ignored and do not rely on it for functional DOM contracts.
 - `service.bat stop` must verify process ownership before killing a PID; never kill arbitrary processes solely because they use port 4173.
@@ -116,6 +117,7 @@ For Viewer/service changes:
 - Use `service.bat restart` after the repair so the running Viewer picks up the latest code.
 - GET `http://127.0.0.1:4173/` returns HTTP 200.
 - Local MP4 Range requests should return HTTP 206 when testing Viewer behavior.
+- When navigation/Reader layout changes, verify real click-to-anchor behavior (same pathname, expected hash, target below sticky UI), active-menu ScrollSpy, zero duplicate ids on combined Explain pages, mobile chapter selection without reload, and legacy `?chapter=` compatibility when applicable.
 - Final service status should be `running` after a repair/validation cycle so the user can immediately test the result.
 - Do not stop the Viewer at the end unless the user explicitly asks for it to be stopped.
 

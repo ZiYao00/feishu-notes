@@ -7,6 +7,7 @@ const {
   getChapterSummary,
   renderChapterReader,
   renderThemeControl,
+  chapterAnchorId,
 } = require('./chapters');
 
 const VIEWER_ASSET_ROOT = path.join(__dirname, 'assets');
@@ -365,13 +366,25 @@ function startViewer({ libraryRoot, host = '127.0.0.1', port = 4173 }) {
           return;
         }
 
+        const requestedChapterId = url.searchParams.get('chapter') || '';
+        if (requestedChapterId) {
+          const requestedChapter = chapterManifest.chapters.find(chapter =>
+            chapter && chapter.status === 'ready' && chapter.id === requestedChapterId
+          );
+          if (requestedChapter) {
+            const location = '/explain/' + encodeURIComponent(folder) + '/#' + chapterAnchorId(requestedChapter);
+            res.writeHead(302, { Location: location });
+            res.end();
+            return;
+          }
+        }
+
         const html = renderChapterReader({
           archiveManifest,
           explainManifest,
           chapterManifest,
           folder,
           articleDir: dir,
-          requestedChapterId: url.searchParams.get('chapter') || '',
         });
 
         if (!html) {

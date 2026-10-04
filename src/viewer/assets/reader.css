@@ -388,7 +388,13 @@ body.toc-collapsed .reader-splitter{display:none}
   letter-spacing:-.028em;
   text-wrap:balance;
 }
-.reader-block--heading{scroll-margin-top:calc(var(--reader-topbar-height) + 22px)}
+.reader-block--heading,
+.reader-block--heading h2[id],
+.reader-block--heading h3[id],
+.reader-block--heading h4[id],
+.explain-chapter-section{
+  scroll-margin-top:calc(var(--reader-topbar-height) + 22px);
+}
 .reader-block--heading h2{
   position:relative;
   margin:64px 0 24px;
@@ -2238,7 +2244,25 @@ body.explain-chapter-reader .learning-case--prompt > .reader-prompt-card.reader-
 }
 .explain-chapter-article{
   max-width:none;
+  padding-bottom:calc(96px + var(--reader-chapter-tail-space,0px));
   line-height:1.78;
+}
+.explain-chapter-section{
+  width:100%;
+}
+.explain-chapter-section+.explain-chapter-section{
+  margin-top:72px;
+  padding-top:46px;
+  border-top:1px solid var(--reader-border);
+}
+.explain-chapter-section>.reader-article-title,
+.explain-chapter-section>.reader-block--text,
+.explain-chapter-section>.reader-block--list,
+.explain-chapter-section>.reader-block--heading,
+.explain-chapter-section>blockquote,
+.explain-chapter-section>pre,
+.explain-chapter-section>hr{
+  max-width:min(100%,var(--reader-prose-max));
 }
 .explain-chapter-article .reader-article-title{
   max-width:min(100%,var(--reader-prose-max));
@@ -2254,6 +2278,10 @@ body.explain-chapter-reader .learning-case--prompt > .reader-prompt-card.reader-
 .explain-chapter-article .reader-block--heading h3{
   margin:34px 0 14px;
   font-size:20px;
+}
+.explain-chapter-article .reader-block--heading h4{
+  margin:28px 0 12px;
+  font-size:17px;
 }
 .chapter-mobile-nav{display:none}
 .chapter-pager{
@@ -2570,6 +2598,9 @@ body.toc-open{overflow:hidden}
   .reader-back span{display:none}
   .reader-layout{padding-left:0;padding-right:0}
   .reader-article{padding:28px 16px 72px}
+  .explain-chapter-reader .explain-chapter-article{
+    padding-bottom:calc(72px + var(--reader-chapter-tail-space,0px));
+  }
   .reader-article-title{font-size:30px}
   .reader-block--heading h2{
     margin-top:42px;

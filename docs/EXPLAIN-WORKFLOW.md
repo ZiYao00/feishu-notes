@@ -13,7 +13,7 @@ library/<article>/
 └─ explain/
 ```
 
-The Viewer may expose both **Original article** and **Explain version**, but the Explain layer must never be required for ordinary offline reading. The public Explain experience is one chapter Reader, not a Course Map or Lesson dashboard.
+The Viewer may expose both **Original article** and **Explain version**, but the Explain layer must never be required for ordinary offline reading. Public Explain is one continuous deconstruction Reader: chapter Markdown stays split for maintainability, while every ready chapter is rendered in manifest order on the same page.
 
 ## Source boundary
 
@@ -42,9 +42,10 @@ explain/
 Public visibility rule:
 
 - a chapter is user-visible only when it is listed in `chapters/manifest.json` with `status: "ready"` and its Markdown file exists;
-- `/explain/<folder>/` opens the first ready chapter;
-- chapter switching stays inside the same Reader using the `chapter` query parameter;
-- legacy `/explain/<folder>/<lesson>/` routes are hidden;
+- `/explain/<folder>/` renders every ready chapter in manifest order as one continuous page;
+- each chapter receives a stable page anchor (`#chapter-<id>`), and its internal heading ids are namespaced by chapter so the combined page has no duplicate ids;
+- desktop chapter navigation and the narrow-screen chapter selector scroll the current page and synchronize with ScrollSpy; they do not reload or paginate chapters;
+- legacy `?chapter=<id>` links redirect to the equivalent hash anchor, while legacy `/explain/<folder>/<lesson>/` routes remain hidden;
 - Evidence/ASR/frame counts are not shown in normal navigation.
 
 Initialize the structure with:
@@ -225,6 +226,7 @@ Quality gates:
 - Avoid teacher-facing language such as “先理解为什么难读”, “你应该”, “这一章记住”, or explanations of why the editor reorganized the content. Replace that with source structure, source claims, deconstruction judgment, applicability boundaries and evidence status.
 - Prefer a small number of meaningful examples over exhaustive repetition, except when the artifact is intentionally a complete case library such as Prompt Library.
 - Public navigation should expose only `status=ready` chapters with an existing Markdown file.
+- Treat public chapter navigation as in-page navigation, not pagination. Clicking a chapter must preserve the `/explain/<folder>/` pathname, update the hash, position the chapter below sticky UI, and update the active menu item. Manual scrolling must update the same active state. Initial deep links should be re-anchored while image/video dimensions settle, but stop doing so as soon as the user actively scrolls or interacts.
 
 ## Visual deconstruction grammar
 
