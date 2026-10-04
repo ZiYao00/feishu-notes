@@ -90,9 +90,12 @@ Viewer：
 - 取消整块白色 Paper 背景；视觉层次由章节、表格、引用、代码、链接、列表和媒体组的局部 CSS 增强建立。
 - 正文视频保持原始横/竖比例并受视口高度限制；正文视频在 Reader 中作为媒体触发器，点击后进入统一媒体弹窗并自动播放。
 - 同一个 Media Block 内允许多媒体 Grid；禁止跨 Block 聚合或重排媒体。
-- 表格内图片/视频继续使用约 120px 高的紧凑触发卡；正文图片、正文视频和表格媒体统一进入透明 Media Dialog，不再使用黑色遮罩背景。
+- 表格内视频不再保留缩略图卡高度，改为约 32px 高的“播放图标 + 视频”紧凑触发器；表格图片只保留小尺寸缩略图触发器。正文图片、正文视频和表格媒体统一进入透明 Media Dialog，不再使用黑色遮罩背景。
 - Media Dialog 支持 Esc 或点击媒体外空白区域关闭，并在关闭后把键盘焦点还给原触发器。
-- 表格在桌面 Reader 中自动分为 Compact / Standard / Wide：短内容小表按内容收缩，普通表限制在中等阅读宽度，复杂/媒体/多列表使用完整可用宽度；各模式继续配合内容感知列宽和自动换行，窄屏统一转为带字段标签的纵向记录卡，不再依赖横向滚动条。
+- 表格在桌面 Reader 中自动分为 Compact / Standard / Wide：按列类型与各列最大文本长度估算自然目标宽度；短内容/低密度表不设人为最小宽度并按内容收缩，普通表使用受限的内容目标宽度，只有真实复杂度高、列数多或估算宽度超限的表才使用完整可用宽度；媒体列本身不再强制 Wide。各模式继续配合内容感知列宽和自动换行，窄屏统一转为带字段标签的纵向记录卡，不再依赖横向滚动条。
+- Original Reader 支持 Long-form / Dense Note 两种自动阅读策略。Dense Note 只能由标题密度、长 Prompt/Code 密度等通用结构信号触发，禁止按具体文章名、URL 或 Block ID 写死。
+- Dense Note 不改源语义和顺序：H2/H3/H4 仍保留原标签，但视觉角色会分为 major / note / long；目录默认只显示 major，可切换“全部”；长 Prompt 使用自动换行、默认折叠、完整复制的 Prompt Card。
+- 图片-only Block 与 Heading 附图必须保留；空块判断要区分“无文字”和“无内容”。飞书内嵌 Sheet 当前若没有可离线提取的单元格数据，必须输出可见 fallback，提示用户从顶部“原文”查看，而不是保留不可运行的网页壳或静默隐藏。
 - 对未知/未来 Block 使用保守 fallback：优先保留文本或媒体，只有真正空块才跳过。
 - 对 MP4 提供 Range 支持。
 - 首页、原始 Reader、学习版统一使用单个亮/暗切换按钮；不再提供“跟随系统”的第三状态。
@@ -425,6 +428,7 @@ GET http://127.0.0.1:4173/ → 200
 - 本地 MP4 支持 Range。
 - Reader 已用 9:16、16:9、1:1、4:3、同 Block Media Grid、table-cell、透明 Media Dialog、视频点击自动播放、重复标题以及 1920/1440/1366/390 四档视口 fixture 做自动回归。
 - Reader 回归还覆盖 Splitter 拖动、宽度持久化、双击复位、键盘调整、流式正文宽度、透明 Reader Canvas、结构化 Flow/Tier 自动识别，以及桌面 Smart Table 无横向滚动与窄屏记录卡模式。
+- Dense Note 专项 fixture 覆盖高标题密度、Smart TOC 精简/全部切换、major/note/long 视觉角色、长 Prompt Card、长 URL 窄屏换行、Heading 附图、图片-only Block 与 Sheet fallback；真实 MinimaxH3 测试文档也已用于泛化验证，但真实文档 ID/URL 不写入 tracked 文件。
 - 清理 Profile 可重建缓存后，登录会话仍可继续使用。
 
 不要把某个真实测试文档 ID 或 URL 写进 tracked 文件。

@@ -168,25 +168,111 @@
   });
 
   const headings = [...document.querySelectorAll('.reader-content h2[id],.reader-content h3[id],.reader-content h4[id]')];
+  const article = document.querySelector('.reader-article');
+  const articleBlocks = article
+    ? [...article.querySelectorAll(':scope > .reader-block')]
+    : [...document.querySelectorAll('.reader-content .reader-block')];
+  const rawCodeBlocks = [...document.querySelectorAll('.reader-block--code pre > code')];
+  const longCodeCount = rawCodeBlocks.filter(code => (code.textContent || '').trim().length >= 800).length;
+  const headingRatio = articleBlocks.length ? headings.length / articleBlocks.length : 0;
+  const promptHeavy =
+    rawCodeBlocks.length >= 4 &&
+    longCodeCount >= Math.max(3, Math.ceil(rawCodeBlocks.length * 0.35));
+  const denseNote =
+    (headings.length >= 16 && headingRatio >= 0.25) ||
+    (promptHeavy && headings.length >= 8);
+
+  body.classList.toggle('reader-dense-note', denseNote);
+  body.classList.toggle('reader-prompt-heavy', promptHeavy);
+  if (article) {
+    article.dataset.readerMode = denseNote ? 'dense-note' : 'long-form';
+    article.dataset.promptHeavy = promptHeavy ? '1' : '0';
+  }
+
+  const headingRoles = new Map();
+  if (denseNote) {
+    const technicalMarker = /https?:\/\/|\b(?:H3|V\d+|Lora|LoRA|API|GGUF|INT\d+|BF\d+|FP\d+|ComfyUI|Seedance|FastH3|Minimax|Quant|SGLang|GPU|CPU)\b|[+><=]/i;
+    headings.forEach(heading => {
+      const textValue = (heading.textContent || '').replace(/\s+/g, ' ').trim();
+      const chineseCount = (textValue.match(/[\u3400-\u9fff]/g) || []).length;
+      const latinCount = (textValue.match(/[A-Za-z]/g) || []).length;
+      const longHeading = textValue.length >= 56 || (/https?:\/\//.test(textValue) && textValue.length >= 34);
+      const majorHeading =
+        heading.tagName === 'H2' &&
+        !longHeading &&
+        textValue.length <= 18 &&
+        chineseCount >= 2 &&
+        latinCount <= Math.max(6, chineseCount) &&
+        !technicalMarker.test(textValue);
+
+      const role = longHeading ? 'long' : majorHeading ? 'major' : 'note';
+      headingRoles.set(heading.id, role);
+      heading.dataset.readerHeadingRole = role;
+      heading.closest('.reader-block--heading')?.classList.add('reader-heading-' + role);
+    });
+  } else {
+    headings.forEach(heading => headingRoles.set(heading.id, 'major'));
+  }
+
   if (tocList) {
+    tocList.replaceChildren();
     for (const heading of headings) {
+      const role = headingRoles.get(heading.id) || 'major';
       const link = document.createElement('a');
       link.href = '#' + heading.id;
       link.dataset.level = heading.tagName.slice(1);
+      link.dataset.headingRole = role;
+      link.classList.add(role === 'major' ? 'is-toc-primary' : 'is-toc-secondary');
       link.textContent = heading.textContent.trim();
       tocList.appendChild(link);
+    }
+
+    if (denseNote && headings.length > 12) {
+      tocList.classList.add('is-smart-toc', 'is-primary-only');
+      const tocHead = toc?.querySelector('.reader-toc-head');
+      const tocTitle = tocHead?.querySelector('.reader-toc-title');
+      if (tocTitle) tocTitle.textContent = '目录 · 精简';
+
+      const scopeToggle = document.createElement('button');
+      scopeToggle.type = 'button';
+      scopeToggle.className = 'reader-toc-scope';
+      scopeToggle.dataset.tocScopeToggle = '1';
+      scopeToggle.textContent = '全部 ' + headings.length;
+      scopeToggle.setAttribute('aria-pressed', 'false');
+      scopeToggle.setAttribute('title', '显示全部目录项');
+      tocHead?.insertBefore(scopeToggle, tocHead.querySelector('.reader-toc-collapse'));
+
+      scopeToggle.addEventListener('click', () => {
+        const showAll = tocList.classList.toggle('show-all');
+        scopeToggle.textContent = showAll ? '精简' : '全部 ' + headings.length;
+        scopeToggle.setAttribute('aria-pressed', showAll ? 'true' : 'false');
+        scopeToggle.setAttribute('title', showAll ? '仅显示主要章节' : '显示全部目录项');
+        if (tocTitle) tocTitle.textContent = showAll ? '目录 · 全部' : '目录 · 精简';
+      });
     }
   }
 
   if (headings.length && tocList) {
-    const links = new Map([...tocList.querySelectorAll('a')].map(link => [link.getAttribute('href').slice(1), link]));
+    const tocLinks = [...tocList.querySelectorAll('a')];
+    const links = new Map(tocLinks.map(link => [link.getAttribute('href').slice(1), link]));
     const observer = new IntersectionObserver(entries => {
       const visible = entries
         .filter(entry => entry.isIntersecting)
         .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
       if (!visible) return;
       for (const link of links.values()) link.classList.remove('active');
-      links.get(visible.target.id)?.classList.add('active');
+
+      let active = links.get(visible.target.id) || null;
+      if (
+        denseNote &&
+        tocList.classList.contains('is-primary-only') &&
+        !tocList.classList.contains('show-all') &&
+        active?.classList.contains('is-toc-secondary')
+      ) {
+        const activeIndex = tocLinks.indexOf(active);
+        active = [...tocLinks.slice(0, activeIndex + 1)].reverse().find(link => link.classList.contains('is-toc-primary')) || active;
+      }
+      active?.classList.add('active');
     }, { rootMargin: '-72px 0px -72% 0px', threshold: [0, 1] });
     headings.forEach(heading => observer.observe(heading));
   }
@@ -194,8 +280,29 @@
   const cleanBlockText = block =>
     (block?.innerText || '').replace(/\u200b/g, '').replace(/\s+/g, ' ').trim();
 
+  document.querySelectorAll('.reader-block--text .docx-sheet-block').forEach(sheet => {
+    const block = sheet.closest('.reader-block--text');
+    if (!block) return;
+    const fallback = document.createElement('div');
+    fallback.className = 'reader-embed-fallback reader-sheet-fallback';
+    fallback.dataset.embedKind = 'sheet';
+
+    const title = document.createElement('strong');
+    title.textContent = '飞书内嵌表格';
+    const detail = document.createElement('span');
+    detail.textContent = '当前离线归档未提取该 Sheet 的单元格数据，可从 Reader 顶部“原文”打开源文档查看。';
+    fallback.append(title, detail);
+
+    block.classList.remove('reader-block--text', 'is-empty-block');
+    block.classList.add('reader-block--embed');
+    block.replaceChildren(fallback);
+  });
+
   document.querySelectorAll('.reader-block--text').forEach(block => {
-    if (!cleanBlockText(block)) block.classList.add('is-empty-block');
+    const hasMeaningfulContent = Boolean(
+      block.querySelector('img,video,table,figure,.reader-embed-fallback,.docx-sheet-block,.sheet-block-container')
+    );
+    block.classList.toggle('is-empty-block', !cleanBlockText(block) && !hasMeaningfulContent);
   });
 
   const mediaBlocks = [...document.querySelectorAll('.reader-block--media')];
@@ -479,6 +586,103 @@
     pre.replaceWith(replacement);
   });
 
+  const copyPlainText = async value => {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(value);
+        return true;
+      } catch {
+        // Fall through to the legacy copy path.
+      }
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    document.body.appendChild(textarea);
+    textarea.select();
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch {
+      copied = false;
+    }
+    textarea.remove();
+    return copied;
+  };
+
+  if (promptHeavy) {
+    const promptSignal = /integrated_multimodal_description|subject_definitions|overall_soundscape|non_diegetic_music|retention_analysis|detailed_description|\[Shot\s*\d+\]|<Picture\s*\d+>|<Subject\s*\d+>/i;
+
+    document.querySelectorAll('.reader-block--code pre > code').forEach((code, index) => {
+      const block = code.closest('.reader-block--code');
+      const pre = code.parentElement;
+      if (!block || !pre || block.classList.contains('is-structured-code')) return;
+
+      const rawText = code.textContent || '';
+      const textValue = rawText.trim();
+      if (textValue.length < 500 && !promptSignal.test(textValue)) return;
+
+      const lines = rawText.split(/\r?\n/).length;
+      const collapsible = textValue.length >= 900 || lines >= 18;
+      block.classList.add('reader-prompt-card');
+      if (collapsible) block.classList.add('is-collapsible', 'is-collapsed');
+      block.dataset.promptIndex = String(index + 1);
+      pre.classList.add('reader-prompt-body');
+
+      const header = document.createElement('div');
+      header.className = 'reader-prompt-head';
+
+      const identity = document.createElement('div');
+      identity.className = 'reader-prompt-identity';
+      const label = document.createElement('strong');
+      label.textContent = 'Prompt';
+      const meta = document.createElement('span');
+      meta.textContent = textValue.length.toLocaleString() + ' 字符 · ' + lines + ' 行';
+      identity.append(label, meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'reader-prompt-actions';
+
+      const copyButton = document.createElement('button');
+      copyButton.type = 'button';
+      copyButton.className = 'reader-prompt-action';
+      copyButton.textContent = '复制';
+      copyButton.setAttribute('aria-label', '复制完整 Prompt');
+      copyButton.addEventListener('click', async () => {
+        const copied = await copyPlainText(rawText);
+        const previous = copyButton.textContent;
+        copyButton.textContent = copied ? '已复制' : '复制失败';
+        copyButton.classList.toggle('is-success', copied);
+        setTimeout(() => {
+          copyButton.textContent = previous;
+          copyButton.classList.remove('is-success');
+        }, 1400);
+      });
+      actions.appendChild(copyButton);
+
+      if (collapsible) {
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'reader-prompt-action reader-prompt-toggle';
+        toggle.textContent = '展开全文';
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.addEventListener('click', () => {
+          const collapsed = block.classList.toggle('is-collapsed');
+          toggle.textContent = collapsed ? '展开全文' : '收起';
+          toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        });
+        actions.appendChild(toggle);
+      }
+
+      header.append(identity, actions);
+      block.insertBefore(header, pre);
+    });
+  }
+
   const h3Blocks = [...document.querySelectorAll('.reader-block--heading')]
     .filter(block => block.querySelector('h3'));
 
@@ -656,18 +860,37 @@
       : 0;
     const hasMediaColumn = columnKinds.includes('media');
     const hasLongColumn = columnKinds.includes('long');
+    const columnMaxLengths = Array.from({ length: maxColumns }, (_, column) =>
+      Math.max(
+        0,
+        ...allRows.map(row => (row.cells[column]?.textContent || '').trim().length)
+      )
+    );
+    const estimatedTableWidth = columnMaxLengths.reduce((sum, length, column) => {
+      const kind = columnKinds[column] || (column === 0 ? 'label' : 'default');
+      if (kind === 'media') return sum + 96;
+      if (kind === 'numeric' || kind === 'percent' || kind === 'status') {
+        return sum + Math.max(82, Math.min(132, 38 + length * 10));
+      }
+      if (kind === 'long') {
+        return sum + Math.max(180, Math.min(340, 54 + length * 8));
+      }
+      if (kind === 'label' || column === 0) {
+        return sum + Math.max(92, Math.min(260, 46 + length * 14));
+      }
+      return sum + Math.max(96, Math.min(280, 46 + length * 13));
+    }, 2);
     let tableWidthMode = 'standard';
     if (
       maxColumns <= 4 &&
-      !hasMediaColumn &&
-      !hasLongColumn &&
-      longestCellLength <= 24 &&
-      averageCellLength <= 12
+      longestCellLength <= 36 &&
+      averageCellLength <= 18 &&
+      estimatedTableWidth <= 760
     ) {
       tableWidthMode = 'compact';
     } else if (
       maxColumns >= 6 ||
-      hasMediaColumn ||
+      estimatedTableWidth > 1080 ||
       (maxColumns >= 5 && hasLongColumn)
     ) {
       tableWidthMode = 'wide';
@@ -676,6 +899,7 @@
     table.classList.add('reader-smart-table--' + tableWidthMode);
     const tableWrap = table.closest('.reader-table-wrap');
     tableWrap?.classList.add('reader-table-wrap--' + tableWidthMode);
+    tableWrap?.style.setProperty('--reader-table-target', Math.min(1080, Math.max(220, Math.ceil(estimatedTableWidth))) + 'px');
 
     rows.forEach(row => {
       const first = row.cells[0]?.textContent.trim() || '';
@@ -767,11 +991,12 @@
 
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'table-media-trigger';
+    button.className = 'table-media-trigger table-media-trigger--' + kind;
     button.dataset.mediaSrc = src;
     button.dataset.mediaKind = kind;
     button.dataset.orientation = orientation;
     button.setAttribute('aria-label', '打开' + label);
+    button.setAttribute('title', '打开' + label);
 
     const preview = document.createElement('span');
     preview.className = 'table-media-preview';
@@ -790,7 +1015,7 @@
 
     const caption = document.createElement('span');
     caption.className = 'table-media-label';
-    caption.textContent = label;
+    caption.textContent = kind === 'video' ? '视频' : label;
 
     button.append(preview, caption);
     figure.replaceWith(button);

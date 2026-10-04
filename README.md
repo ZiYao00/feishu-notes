@@ -94,9 +94,11 @@ data/profiles/<profile>/
 - 正文不再固定为 760px；桌面端采用自适应阅读列：普通正文在约 880–960px 的舒适阅读范围内流动，表格、图片、视频等宽内容可使用 Splitter 留出的更大空间，并保持统一左基准线。
 - 取消“大白纸”容器视觉，改为透明 Reader Canvas；章节、表格、引用、代码、链接、媒体组等通过局部 Reading Enhancement CSS 建立阅读层次。
 - 同一个 Media Block 内的多个媒体允许自动 Grid；绝不跨 Block 重排媒体。
-- 正文视频按原始横/竖比例自适应；正文视频与表格内约 120px 高的紧凑媒体触发卡统一进入 Media Dialog，视频由用户点击后自动开始播放。
+- 正文视频按原始横/竖比例自适应；表格视频使用约 32px 高的“播放图标 + 视频”紧凑触发器，表格图片使用小缩略图触发器；这些媒体统一进入 Media Dialog，视频由用户点击后自动开始播放。
 - 正文图片限制显示尺寸并支持点击放大；图片与视频共用透明背景的媒体弹窗，可用 Esc 或点击媒体外空白区域退出。
-- 表格在桌面端自动分为 Compact / Standard / Wide：短内容小表按内容收缩，普通表限制在中等阅读宽度，复杂/媒体/多列表才使用完整 Reader 宽度；窄屏统一转换为带字段标签的记录卡，不依赖横向滚动条。
+- 表格在桌面端自动分为 Compact / Standard / Wide：按列类型和各列文本长度估算自然目标宽度，短内容/低密度表取消人为最小宽度并按内容收缩，普通表使用受限的内容目标宽度，只有真正复杂或超宽的表才使用完整 Reader 宽度；媒体列本身不强制 Wide。窄屏统一转换为带字段标签的记录卡，不依赖横向滚动条。
+- Original Reader 会根据通用结构信号自动区分 Long-form 与 Dense Note：高标题密度/Prompt-heavy 技术笔记保留源语义不变，但视觉上把标题分成章节、知识点、长笔记，并默认只显示精简目录；长 Prompt 使用可换行、可折叠、可复制的 Prompt Card。
+- 图片-only Block 不再被误判为空；Heading 附带媒体继续保留；飞书内嵌 Sheet 若暂时无法提取单元格数据，会显示明确的离线降级卡而不是静默消失。
 - 对暂未识别的未来 Block 使用保守降级：优先保留文本或媒体，避免静默丢内容。
 - 本地视频支持 HTTP Range，可在浏览器拖动播放进度。
 - 可选建立 `explain/` 派生学习层：技术目录与路由继续使用 Explain 命名，公开 UI 统一称“学习版”；保留原始归档不变，Viewer 首页以“进入学习版”为主入口、“查看原始文章”为次入口。
@@ -268,10 +270,11 @@ npm run verify:reader
 - 9:16、16:9、1:1、4:3 视频布局；
 - standalone 与 table-cell 两种媒体上下文；
 - 同一 Media Block 多媒体 Grid，且不跨 Block 重排；
-- 表格视频/图片转约 120px 高的紧凑触发卡，正文视频也作为统一媒体触发器；
+- 表格视频转约 32px 高的图标/文字触发器，表格图片转小缩略图触发器，正文视频也作为统一媒体触发器；
 - 透明 Media Dialog、视频点击后自动播放、Esc/空白区域关闭与焦点返回；
 - 原始文章中的结构化伪代码可自动识别为 Flow / Tier；重复标题继续使用稳定 Block Anchor；
-- 1920 / 1440 / 1366 / 390 四档视口均不得出现页面级横向溢出；Smart Table 在桌面端适配宽度、390px 下转为记录卡；
+- 第二套 Dense Note fixture 覆盖高标题密度、Smart TOC、长 URL 标题、Prompt Card 展开/折叠、Heading 附图、图片-only Block 与 Sheet 离线 fallback，并确保 Long-form Reader 不被这些规则污染；
+- 1920 / 1440 / 1366 / 390 四档视口均不得出现页面级横向溢出；Smart Table 在桌面端适配宽度、390px 下转为记录卡，Dense Note 的长标题/Prompt 同样不得撑宽页面；
 - TOC 靠左、折叠状态、Splitter 拖动/持久化/双击复位，以及正文随剩余空间流式变化；
 - 大白 Paper 已取消，章节 H2、列表、链接、Smart Table、引用、代码、结构化 Flow/Tier 和媒体组的阅读增强样式可正确应用；学习版的 `hero / split / metrics / flow / compare / cards / takeaway` 语义块也必须正常渲染且不造成页面级横向溢出；
 - 未识别 Block 的文本 fallback。

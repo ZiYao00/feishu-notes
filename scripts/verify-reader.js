@@ -17,15 +17,19 @@ async function main() {
   );
   const folder = 'reader-layout-fixture';
   const archiveDir = path.join(libraryRoot, folder);
+  const denseFolder = 'reader-dense-fixture';
+  const denseArchiveDir = path.join(libraryRoot, denseFolder);
 
   if (!keepFixture) fs.rmSync(libraryRoot, { recursive: true, force: true });
   fs.mkdirSync(path.join(archiveDir, 'assets', 'images'), { recursive: true });
+  fs.mkdirSync(path.join(denseArchiveDir, 'assets', 'images'), { recursive: true });
 
   const tinyPng = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2z9sAAAAASUVORK5CYII=',
     'base64'
   );
   fs.writeFileSync(path.join(archiveDir, 'assets', 'images', 'sample.png'), tinyPng);
+  fs.writeFileSync(path.join(denseArchiveDir, 'assets', 'images', 'sample.png'), tinyPng);
 
   const inventory = [
     {
@@ -346,6 +350,121 @@ async function main() {
     })),
   }, null, 2), 'utf8');
 
+  const denseInventory = inventory.filter(item => item.url === 'fixture:image');
+  const densePrompt = [
+    'subject_definitions:',
+    '<Subject 1> is the same reference character and must remain visually consistent.',
+    'integrated_multimodal_description:',
+    ...Array.from({ length: 26 }, (_, index) =>
+      `[Shot ${index + 1}] Preserve identity, scene continuity, lighting direction, camera axis, spatial causality and natural body mechanics. The subject performs a controlled action with precise timing while the camera follows smoothly and all reference details remain stable.`
+    ),
+    'overall_soundscape: restrained environmental detail with synchronized physical sounds.',
+    'non_diegetic_music: subtle cinematic pulse, never overpowering dialogue.',
+  ].join('\n');
+  const denseHeadingTitles = [
+    '模型测试',
+    '分镜提示词Skill：https://github.com/eternityspring/shuohao-skills',
+    'FastH3 V2 + HypeFlow Lora 8步 + 加速插件',
+    '视频案例',
+    'QuantFunc INT8 与 BF16 速度质量对比',
+    '官方基础 H3 400-500秒',
+    '产品广告',
+    'Seedance 2.5 优秀提示词转 MinimaxH3',
+    'Refface 远景人脸修复测试',
+    '工作流结论',
+    'Block Sparse Attention 与 DMD2 蒸馏',
+    'SAM3 人物替换实验',
+    '模型安装',
+    'ComfyUI 节点兼容性',
+    '显存与速度',
+    '提示词案例',
+    '参考图一致性',
+    '最终建议',
+  ];
+  const denseBlocks = [];
+  denseHeadingTitles.forEach((title, index) => {
+    denseBlocks.push({
+      id: `d-h-${index + 1}`,
+      className: 'docx-heading1-block',
+      text: title,
+      html: '',
+      media: index === 6 ? [{ url: 'fixture:image' }] : [],
+      table: null,
+    });
+    denseBlocks.push({
+      id: `d-t-${index + 1}`,
+      className: 'docx-text-block',
+      text: `这是第 ${index + 1} 条高密度技术笔记，用于验证知识点标题不会全部按大章节排版。`,
+      html: `<div class="docx-text-block">这是第 ${index + 1} 条高密度技术笔记，用于验证知识点标题不会全部按大章节排版。</div>`,
+      media: [],
+      table: null,
+    });
+  });
+  denseBlocks.push({
+    id: 'd-image',
+    className: 'docx-image-block',
+    text: '',
+    html: '<div class="docx-image-block"><img src="fixture:image" width="2400" height="1600"></div>',
+    media: [{ url: 'fixture:image' }],
+    table: null,
+  });
+  denseBlocks.push({
+    id: 'd-sheet',
+    className: 'docx-sheet-block',
+    text: '',
+    html: '<div class="docx-sheet-block"><div class="sheet-block-container"><div class="spreadsheet"></div></div></div>',
+    media: [],
+    table: null,
+  });
+  for (let index = 0; index < 5; index += 1) {
+    denseBlocks.push({
+      id: `d-code-${index + 1}`,
+      className: 'docx-code-block',
+      text: densePrompt + `\nPrompt variant ${index + 1}`,
+      html: '',
+      media: [],
+      table: null,
+    });
+  }
+
+  const denseDocument = {
+    documentId: 'dense-fixture',
+    title: 'Dense Note Prompt Library Fixture',
+    sourceUrl: '',
+    blocks: denseBlocks,
+  };
+  const denseRendered = renderDocument({ document: denseDocument, inventory: denseInventory });
+  fs.writeFileSync(path.join(denseArchiveDir, 'article.html'), denseRendered.html, 'utf8');
+  fs.writeFileSync(path.join(denseArchiveDir, 'fixture.md'), denseRendered.markdown, 'utf8');
+  fs.writeFileSync(path.join(denseArchiveDir, 'archive.json'), JSON.stringify({
+    version: 2,
+    documentId: denseDocument.documentId,
+    title: denseDocument.title,
+    sourceUrl: '',
+    savedAt: fixtureSavedAt,
+    status: 'complete',
+    markdownFile: 'fixture.md',
+    htmlFile: 'article.html',
+    storage: {
+      logicalMediaCount: denseInventory.length,
+      physicalAssetCount: denseInventory.length,
+      logicalBytes: denseInventory.reduce((sum, item) => sum + item.actualSize, 0),
+      physicalBytes: denseInventory.reduce((sum, item) => sum + item.actualSize, 0),
+      deduplicatedBytes: 0,
+    },
+    media: denseInventory.map(item => ({
+      id: item.id,
+      kind: item.kind,
+      localRelativePath: item.localRelativePath,
+      actualSize: item.actualSize,
+      status: item.status,
+      contexts: item.contexts,
+      width: item.width,
+      height: item.height,
+      aspectRatio: item.aspectRatio,
+    })),
+  }, null, 2), 'utf8');
+
   const explainRoot = path.join(archiveDir, 'explain');
   fs.mkdirSync(path.join(explainRoot, 'lessons'), { recursive: true });
   fs.mkdirSync(path.join(explainRoot, 'evidence', 'asr'), { recursive: true });
@@ -510,7 +629,7 @@ async function main() {
     const homeResponse = await page.goto(homeUrl, { waitUntil: 'networkidle' });
     assert.strictEqual(homeResponse.status(), 200);
     assert.strictEqual(await page.locator('a.btn-primary').count(), 1);
-    assert.strictEqual(await page.locator('a.btn-secondary').count(), 1);
+    assert.strictEqual(await page.locator('a.btn-secondary').count(), 2);
 
     assert.strictEqual((await page.locator('a.btn-primary').first().innerText()).includes('进入学习版'), true);
     assert.strictEqual((await page.locator('a.btn-secondary').first().innerText()).includes('查看原始文章'), true);
@@ -629,6 +748,8 @@ async function main() {
         } : null,
         tableTriggerCount: tableTriggers.length,
         maxTableTriggerHeight: Math.max(0, ...tableTriggers.map(item => Math.round(item.getBoundingClientRect().height))),
+        maxTableVideoTriggerHeight: Math.max(0, ...tableTriggers.filter(item => item.dataset.mediaKind === 'video').map(item => Math.round(item.getBoundingClientRect().height))),
+        maxTableImageTriggerHeight: Math.max(0, ...tableTriggers.filter(item => item.dataset.mediaKind === 'image').map(item => Math.round(item.getBoundingClientRect().height))),
         tableVideos: document.querySelectorAll('table video').length,
         tableFits: [...document.querySelectorAll('.reader-table-wrap')].every(item => item.scrollWidth <= item.clientWidth + 1),
         compactTable: rect('.reader-table-wrap--compact'),
@@ -675,13 +796,15 @@ async function main() {
     assert.strictEqual(desktop1920.mediaGrid.count, 2);
     assert.ok(desktop1920.mediaGrid.columns.split(' ').length >= 2);
     assert.strictEqual(desktop1920.tableTriggerCount, 3);
-    assert.ok(desktop1920.maxTableTriggerHeight <= 130);
+    assert.ok(desktop1920.maxTableTriggerHeight <= 56);
+    assert.ok(desktop1920.maxTableVideoTriggerHeight <= 36);
+    assert.ok(desktop1920.maxTableImageTriggerHeight <= 56);
     assert.strictEqual(desktop1920.tableVideos, 0);
     assert.strictEqual(desktop1920.tableFits, true);
-    assert.ok(desktop1920.compactTable.width >= 420 && desktop1920.compactTable.width <= 820);
+    assert.ok(desktop1920.compactTable.width >= 220 && desktop1920.compactTable.width < 420);
     assert.ok(desktop1920.standardTable.width > desktop1920.compactTable.width);
     assert.ok(desktop1920.standardTable.width <= 1080);
-    assert.strictEqual(desktop1920.wideTableCount, 2);
+    assert.strictEqual(desktop1920.wideTableCount, 1);
     assert.strictEqual(desktop1920.inferredHeaderRows, 1);
     assert.strictEqual(desktop1920.structuredFlowSteps, 5);
     assert.strictEqual(desktop1920.structuredTierGroups, 3);
@@ -826,7 +949,93 @@ async function main() {
       responsive.push(result);
     }
 
-    console.log(JSON.stringify({ ok: true, desktop1920, collapsed, imageDialog, responsive }, null, 2));
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    const denseUrl = `http://127.0.0.1:${port}/note/${encodeURIComponent(denseFolder)}/`;
+    const denseResponse = await page.goto(denseUrl, { waitUntil: 'networkidle' });
+    assert.strictEqual(denseResponse.status(), 200);
+    await page.waitForTimeout(120);
+
+    const denseDesktop = await page.evaluate(() => {
+      const visible = element => getComputedStyle(element).display !== 'none';
+      const promptBody = document.querySelector('.reader-prompt-card .reader-prompt-body');
+      const major = document.querySelector('.reader-heading-major h2,.reader-heading-major h3');
+      const note = document.querySelector('.reader-heading-note h2,.reader-heading-note h3');
+      const long = document.querySelector('.reader-heading-long h2,.reader-heading-long h3');
+      return {
+        dense: document.body.classList.contains('reader-dense-note'),
+        promptHeavy: document.body.classList.contains('reader-prompt-heavy'),
+        mode: document.querySelector('.reader-article')?.dataset.readerMode || '',
+        headings: document.querySelectorAll('.reader-block--heading h2[id],.reader-block--heading h3[id]').length,
+        majorHeadings: document.querySelectorAll('.reader-heading-major').length,
+        noteHeadings: document.querySelectorAll('.reader-heading-note').length,
+        longHeadings: document.querySelectorAll('.reader-heading-long').length,
+        tocLinks: document.querySelectorAll('.reader-toc-list a').length,
+        visibleTocLinks: [...document.querySelectorAll('.reader-toc-list a')].filter(visible).length,
+        tocScope: document.querySelector('[data-toc-scope-toggle]')?.textContent || '',
+        promptCards: document.querySelectorAll('.reader-prompt-card').length,
+        collapsedPrompts: document.querySelectorAll('.reader-prompt-card.is-collapsed').length,
+        promptBodyHeight: promptBody ? Math.round(promptBody.getBoundingClientRect().height) : 0,
+        promptBodyScrollHeight: promptBody?.scrollHeight || 0,
+        headingMedia: document.querySelectorAll('.reader-heading-media .reader-media--image').length,
+        visibleImages: [...document.querySelectorAll('.reader-content img[data-reader-zoomable]')].filter(image => image.getBoundingClientRect().width > 0).length,
+        sheetFallback: document.querySelectorAll('.reader-sheet-fallback').length,
+        sheetFallbackVisible: Boolean(document.querySelector('.reader-sheet-fallback')?.getBoundingClientRect().width),
+        majorFont: major ? parseFloat(getComputedStyle(major).fontSize) : 0,
+        noteFont: note ? parseFloat(getComputedStyle(note).fontSize) : 0,
+        longFont: long ? parseFloat(getComputedStyle(long).fontSize) : 0,
+        pageOverflow: document.documentElement.scrollWidth > innerWidth,
+      };
+    });
+
+    assert.strictEqual(denseDesktop.dense, true);
+    assert.strictEqual(denseDesktop.promptHeavy, true);
+    assert.strictEqual(denseDesktop.mode, 'dense-note');
+    assert.strictEqual(denseDesktop.headings, 18);
+    assert.ok(denseDesktop.majorHeadings >= 4);
+    assert.ok(denseDesktop.noteHeadings >= 4);
+    assert.ok(denseDesktop.longHeadings >= 1);
+    assert.strictEqual(denseDesktop.tocLinks, 18);
+    assert.ok(denseDesktop.visibleTocLinks < denseDesktop.tocLinks);
+    assert.ok(denseDesktop.tocScope.includes('全部 18'));
+    assert.strictEqual(denseDesktop.promptCards, 5);
+    assert.strictEqual(denseDesktop.collapsedPrompts, 5);
+    assert.ok(denseDesktop.promptBodyHeight <= 341);
+    assert.ok(denseDesktop.promptBodyScrollHeight > denseDesktop.promptBodyHeight);
+    assert.strictEqual(denseDesktop.headingMedia, 1);
+    assert.ok(denseDesktop.visibleImages >= 2);
+    assert.strictEqual(denseDesktop.sheetFallback, 1);
+    assert.strictEqual(denseDesktop.sheetFallbackVisible, true);
+    assert.ok(denseDesktop.majorFont <= 24);
+    assert.ok(denseDesktop.noteFont <= 18);
+    assert.ok(denseDesktop.longFont <= 16.5);
+    assert.strictEqual(denseDesktop.pageOverflow, false);
+
+    await page.click('[data-toc-scope-toggle]');
+    const expandedTocCount = await page.evaluate(() =>
+      [...document.querySelectorAll('.reader-toc-list a')].filter(link => getComputedStyle(link).display !== 'none').length
+    );
+    assert.strictEqual(expandedTocCount, 18);
+
+    const firstPromptToggle = page.locator('.reader-prompt-toggle').first();
+    await firstPromptToggle.click();
+    assert.strictEqual(await firstPromptToggle.getAttribute('aria-expanded'), 'true');
+    assert.strictEqual(await page.locator('.reader-prompt-card').first().evaluate(element => element.classList.contains('is-collapsed')), false);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(denseUrl, { waitUntil: 'networkidle' });
+    const denseMobile = await page.evaluate(() => ({
+      pageOverflow: document.documentElement.scrollWidth > innerWidth,
+      docWidth: document.documentElement.scrollWidth,
+      width: innerWidth,
+      visibleImages: [...document.querySelectorAll('.reader-content img[data-reader-zoomable]')].filter(image => image.getBoundingClientRect().width > 0).length,
+      sheetFallbackVisible: Boolean(document.querySelector('.reader-sheet-fallback')?.getBoundingClientRect().width),
+    }));
+    assert.strictEqual(denseMobile.pageOverflow, false);
+    assert.strictEqual(denseMobile.docWidth, denseMobile.width);
+    assert.ok(denseMobile.visibleImages >= 2);
+    assert.strictEqual(denseMobile.sheetFallbackVisible, true);
+
+    console.log(JSON.stringify({ ok: true, desktop1920, collapsed, imageDialog, responsive, denseDesktop, denseMobile }, null, 2));
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

@@ -288,11 +288,19 @@ function renderBlock(block, inventory, turndown) {
   if (level) {
     const value = cleanText(block.text);
     const anchor = `block-${escapeHtml(block.id)}`;
+    const attachedMarkdown = markdownMedia(effectiveMedia, inventory, false);
+    const attachedHtml = htmlMedia(effectiveMedia, inventory, 'standalone').join('');
     return {
-      markdown: value ? `${'#'.repeat(level)} ${value}` : '',
-      html: value
-        ? `<h${level} id="${anchor}" data-block-id="${escapeHtml(block.id)}">${escapeHtml(value)}</h${level}>`
-        : '',
+      markdown: [
+        value ? `${'#'.repeat(level)} ${value}` : '',
+        ...attachedMarkdown,
+      ].filter(Boolean).join('\n\n'),
+      html: [
+        value
+          ? `<h${level} id="${anchor}" data-block-id="${escapeHtml(block.id)}">${escapeHtml(value)}</h${level}>`
+          : '',
+        attachedHtml ? `<div class="reader-heading-media">${attachedHtml}</div>` : '',
+      ].filter(Boolean).join(''),
       type: 'heading',
     };
   }
@@ -332,10 +340,24 @@ function renderBlock(block, inventory, turndown) {
     };
   }
 
+  if (/docx-sheet-block/.test(block.className)) {
+    return {
+      markdown: '飞书内嵌表格（当前离线归档未提取单元格数据，请查看原文）',
+      html:
+        '<div class="reader-embed-fallback reader-sheet-fallback" data-embed-kind="sheet">' +
+        '<strong>飞书内嵌表格</strong>' +
+        '<span>当前离线归档未提取该 Sheet 的单元格数据，可从 Reader 顶部“原文”打开源文档查看。</span>' +
+        '</div>',
+      type: 'embed',
+    };
+  }
+
   const blockMedia = markdownMedia(effectiveMedia, inventory, false);
   const hasVideo = effectiveMedia.some(entry => findMedia(entry.url, inventory)?.kind === 'video');
+  const hasImage = effectiveMedia.some(entry => findMedia(entry.url, inventory)?.kind === 'image');
   const isMediaShell =
-    /docx-(file|view)-block/.test(block.className) ||
+    /docx-(file|view|image)-block/.test(block.className) ||
+    (hasImage && !normalizedText && /<img\b/i.test(block.html || '')) ||
     (hasVideo && /xgplayer|preview-type-video/.test(block.html));
 
   if (isMediaShell) {
@@ -421,6 +443,10 @@ th{font-weight:650;background:color-mix(in srgb, CanvasText 7%, Canvas)}
 pre{overflow:auto;padding:1rem;border-radius:8px;background:color-mix(in srgb, CanvasText 7%, Canvas)}
 blockquote{margin-left:0;padding-left:1rem;border-left:3px solid color-mix(in srgb, CanvasText 24%, transparent)}
 .reader-block--fallback .reader-fallback{padding:.8rem 1rem;border:1px dashed color-mix(in srgb, CanvasText 24%, transparent);border-radius:8px;background:color-mix(in srgb, CanvasText 5%, Canvas);white-space:pre-wrap}
+.reader-heading-media{margin:.8rem 0 1.25rem}
+.reader-block--embed{max-width:var(--text-width);margin:1rem auto}
+.reader-embed-fallback{display:flex;flex-direction:column;gap:.3rem;padding:.85rem 1rem;border:1px dashed color-mix(in srgb, CanvasText 24%, transparent);border-radius:8px;background:color-mix(in srgb, CanvasText 5%, Canvas)}
+.reader-embed-fallback span{opacity:.72;font-size:.9rem}
 a{overflow-wrap:anywhere}
 @media(max-width:800px){
   .reader-article{padding:28px 16px 72px}
