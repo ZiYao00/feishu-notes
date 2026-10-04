@@ -57,11 +57,12 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Canonical asset cleanup is allowed only after the replacement Markdown/HTML/manifest has been written successfully.
 - Do not introduce a cross-article/global media pool without a separate architecture decision.
 
-## Explain / derived-learning rules
+## Explain / derived-deconstruction rules
 
-- Original archive files remain the source of truth. Derived teaching material belongs under `library/<article>/explain/` and must never be written into `archive.json`.
+- Original archive files remain the source of truth. Derived source-deconstruction material belongs under `library/<article>/explain/` and must never be written into `archive.json`.
 - Viewer support for Explain must remain optional; ordinary archived articles must work with no Explain directory and no ASR service.
-- `explain/manifest.json` must keep a source fingerprint so source updates can be detected instead of silently presenting stale teaching material.
+- Public UI calls Explain **原文深度拆解**. Its job is to analyze source claims, evidence, structure, trade-offs and reusable cases; avoid teacher-note, study-instruction or editorial-process wording addressed to the reader.
+- `explain/manifest.json` must keep a source fingerprint so source updates can be detected instead of silently presenting stale deconstruction material.
 - Public Explain content is chapter-driven: `explain/chapters/manifest.json` + Markdown chapters. Only `status=ready` chapters with an existing file are user-visible.
 - Legacy `explain/lessons/`, Evidence Cases, ASR records, frames and other analysis artifacts are internal material; do not expose their counts or lists in normal navigation.
 - Video evidence uses archive `contentHash` (SHA-256) as the canonical identity. ASR, keyframes, cases and chapter citations must preserve that identity for traceability.
@@ -81,13 +82,14 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Standalone video must preserve source aspect ratio with viewport bounds; table-cell media must remain compact and must not expand table rows into full-size players.
 - Multiple media items may form a grid only when they belong to the same source media block. Never regroup media across block boundaries.
 - Local images and standalone/table-cell videos use one shared transparent media dialog. Explicit video activation starts playback; Escape or a blank-stage click closes the dialog and returns focus to the opener.
-- Reader tables use content-aware width modes: compact short/sparse tables shrink toward an estimated natural content width with no arbitrary minimum, standard tables use a bounded content-derived width, and only genuinely complex/wide tables use the available Reader canvas. Media alone must not force a table wide. Column weighting and text wrapping must keep desktop tables free of horizontal scrolling; narrow screens become labeled record cards.
+- Desktop Reader tables use generic AutoFit / Clamp behavior based on browser-measured rendered widths, not field names, first-column status, character-count estimates, column count, or semantic-type weights. If the natural table width fits, keep that natural width; otherwise clamp to the available Reader canvas and compress columns from their preferred widths toward header-based minimums. Tables with row/column spans or a source colgroup fall back to native auto layout; narrow screens become labeled record cards.
 - Table-cell video is a compact icon/pill launcher because playback happens in the shared Media Dialog; it must not reserve thumbnail-card height inside the row. Table-cell images may keep a small thumbnail launcher.
+- Table column kinds such as numeric / percent / status / media are visual semantics only and must never determine layout width. Percent styling requires cells whose content is primarily a percentage value; prose that merely contains a percentage must remain ordinary text.
 - Original Reader may switch between long-form and dense-note presentation only from generic document structure signals (for example heading density and long prompt/code density). Never key Reader modes to a document title, URL, block id, or other article-specific identifier.
 - Dense-note mode must preserve source heading semantics and order while assigning visual roles (major / note / long), defaulting Smart TOC to major headings, and rendering long prompt-like code blocks as readable, wrappable, collapsible Prompt Cards with full-copy actions.
 - Dense notes may group consecutive short heading/text records into a generic Commentary Stream when the source behaves like live notes or chat-style one-line commentary. Do not invent speakers, timestamps, reply relationships, or chat bubbles that are absent from the source; real chapters, media, code, tables and embeds must break the stream.
-- Explain case libraries may use the controlled `:::case` directive for case metadata/tags and optional local archive media. Never bind a video to a Prompt without explicit source evidence; keep unverified video and Prompt cases separate.
-- Empty-block detection must never hide meaningful media or embeds. Heading-attached media must remain attached, image-only blocks must remain visible, and unsupported embedded Sheets must degrade to a visible offline fallback instead of disappearing.
+- Explain/deconstruction case libraries may use the controlled `:::case` directive for case metadata/tags and optional local archive media. Prompt Library cases use exactly one first-level visual container: analysis, Prompt anatomy, constraints and the complete Prompt belong inside the same Case; the embedded Prompt region must not render as a second bordered card. Never bind a video to a Prompt without explicit source evidence; keep unverified video and Prompt cases separate.
+- Empty-block detection must never hide meaningful media or embeds. Heading-attached media and image-only blocks remain visible. Embedded Feishu Sheets should first be extracted through the authenticated Sheet copy/clipboard HTML path and stored as normal offline tables; the user's clipboard must be restored after capture. Only failed extraction may degrade to a visible offline fallback.
 - Desktop Reader width is user-controlled through the TOC/content splitter; do not reintroduce a hard-coded prose width such as 760px.
 - Splitter behavior must remain keyboard accessible, locally persistent, double-click resettable, and disabled in drawer/mobile layout.
 - Reading-enhancement CSS may style headings, lists, links, tables, quotes, code and media groups, but must not alter source block order or semantics.

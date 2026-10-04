@@ -161,26 +161,26 @@ explain/evidence/frames/<contentHash>/
 - transferability notes;
 - uncertainty or verification flags.
 
-Public chapters should reuse cases instead of independently re-analysing the same video. Cases support the teaching point; they do not define the public chapter structure.
+Public chapters should reuse cases instead of independently re-analysing the same evidence. Cases support an analytical conclusion; they do not define the public chapter structure.
 
-## Learner-first authoring contract
+## Source-deconstruction authoring contract
 
-The technical capability keeps the internal name `Explain` and the route remains `/explain/<folder>/` for compatibility. The normal public UI should call the result **学习版**.
+The technical capability keeps the internal name `Explain` and the route remains `/explain/<folder>/` for compatibility. The normal public UI should call the result **原文深度拆解**. The artifact analyzes the source's claims, evidence, structure, trade-offs and reusable cases; it must not read like teacher notes, study instructions or editorial commentary addressed to a student.
 
-The source report is both the evidence source and, when its structure is coherent, the default learning spine. Preserve the original major-dimension order unless a real prerequisite problem makes local reordering necessary. Do not merely paraphrase section-by-section: keep the source sequence, then redesign each information block around what a learner needs to understand, remember, judge, transfer and review.
+The source archive remains the evidence source. When the source already has a coherent analytical sequence, preserve its major order. When it is a live-note/chat-style fragment stream, reorganize the derived deconstruction by concepts, relationships and decision logic while keeping the canonical archive unchanged.
 
-Target learning progression:
+Target analytical progression:
 
 ```text
-看懂
+识别原文结论
 ↓
-记住
+区分事实 / 作者口径 / 案例 / 视觉证据
 ↓
-会判断
+拆出技术关系与冲突
 ↓
-会套用
+标明适用边界与待验证项
 ↓
-能复盘
+沉淀可复用的判断与案例结构
 ```
 
 Preferred transformation pipeline:
@@ -190,45 +190,43 @@ Preferred transformation pipeline:
 ↓
 高解析度拆分：事实 / 数据 / 作者判断 / 案例 / 视觉证据
 ↓
-判断原文章节是否具备可学习的主轴
+识别信息结构：模型 / 方法 / 对比 / 因果 / 数据 / 执行 / 案例
 ↓
-默认保留原维度顺序；只有必要依赖才局部调整
+保留有效主轴；碎片记录按概念与决策关系重组
 ↓
-为每个信息块标注关系：结论 / 并列 / 因果 / 对比 / 数据 / 分类 / 执行
+区分：原文口径 / 拆解判断 / 待验证
 ↓
 选择对应视觉语义组件
 ↓
-补充学习解释、证据边界、判断与迁移
+案例拆解：结构 / 约束 / Prompt Anatomy / 完整证据
 ↓
-教学质量与版式压力复核
+事实一致性、证据边界与版式压力复核
 ```
 
-A chapter should normally move through the following teaching logic when those parts are useful. This is a teaching checklist, not a rigid prose template:
+A chapter should normally answer the following analytical questions when relevant; this is not a rigid prose template:
 
-1. state the learner question or outcome;
-2. give the core conclusion early;
-3. show the minimum source evidence needed;
-4. translate the evidence into a simple mental model;
-5. explain why the mechanism works;
-6. attach a representative real case when it adds evidence;
-7. show a common mistake or counterexample;
-8. transfer the idea to another product or situation;
-9. require the learner to make a judgment or complete a small exercise;
-10. finish with a small set of durable takeaways, usually three.
+1. what part of the original article is being analyzed;
+2. what conclusions or claims the source actually makes;
+3. what source evidence supports those claims;
+4. how the concepts, mechanisms or trade-offs relate to each other;
+5. what conditions limit the claim or require re-verification;
+6. which real case materially clarifies the conclusion;
+7. what reusable structure, decision rule or production pattern can be extracted;
+8. whether the source itself contains contradictions, title/content mismatch or evidence gaps.
 
 Quality gates:
 
 - A chapter should not merely be an easier rewrite of the source report.
-- When the source already has a strong analytical sequence, preserve that sequence so the learner can map the learning version back to the original. When the source is visibly a live-note/chat-style fragment stream rather than a coherent analytical article, the public learning spine may reorganize it by concept, trade-off and decision path; keep the canonical archive unchanged and distinguish source claims from interpretation.
+- When the source already has a strong analytical sequence, preserve it. When the source is a live-note/chat-style fragment stream, the deconstruction may reorganize it by concept, trade-off and decision path; keep the canonical archive unchanged and distinguish source claims from interpretation.
 - Do not flatten every relationship into vertical prose. Parallel, causal, comparative, statistical, categorical and procedural information should look different.
 - Keep source facts, source/marketing claims, project interpretation and independently verified external facts distinguishable.
-- Evidence supports a teaching point; the existence or order of Evidence Cases must not dictate the chapter outline.
-- Do not transplant unverified medical, safety, performance or regulatory claims into a new product merely because the source creative used them.
-- A successful chapter should leave the learner able to explain the concept in plain language, diagnose a new example and transfer the method to another brief.
-- Prefer a small number of meaningful examples over exhaustive repetition.
+- Evidence supports an analytical conclusion; the existence or order of Evidence Cases must not dictate the chapter outline.
+- Do not transplant unverified medical, safety, performance or regulatory claims into a new context merely because the source used them.
+- Avoid teacher-facing language such as “先理解为什么难读”, “你应该”, “这一章记住”, or explanations of why the editor reorganized the content. Replace that with source structure, source claims, deconstruction judgment, applicability boundaries and evidence status.
+- Prefer a small number of meaningful examples over exhaustive repetition, except when the artifact is intentionally a complete case library such as Prompt Library.
 - Public navigation should expose only `status=ready` chapters with an existing Markdown file.
 
-## Visual learning grammar
+## Visual deconstruction grammar
 
 Public chapter Markdown may use a small controlled directive set when plain Markdown would hide the relationship between pieces of information:
 
@@ -238,7 +236,7 @@ Public chapter Markdown may use a small controlled directive set when plain Mark
 - `:::flow` — causal, temporal or procedural sequence;
 - `:::compare` — row-based A/B or current/future comparison;
 - `:::cards` — parallel categories, personas, scenes or options;
-- `:::case` — one reusable case record with title, meta, repeated tags, summary, optional archive-local image/video and an evidence/boundary note;
+- `:::case` — one reusable case record with title, meta, repeated tags, summary, optional archive-local image/video, repeated `analysis:` / `anatomy:` / `constraint:` fields and an evidence/boundary note. For Prompt Library, `prompt: true` marks the immediately following fenced code block as the complete Prompt for this Case; the Viewer moves that Prompt inside the same Case and removes its independent card border;
 - `:::takeaway` — durable summary or boundary that should stand apart from prose.
 
 Use these blocks semantically, not decoratively. A page should not add badges, eyebrow labels, color blocks or oversized headings unless they carry information. Keep the visual hierarchy compact enough for long desktop study sessions. Ordinary prose remains ordinary Markdown.
@@ -247,10 +245,10 @@ Numeric hierarchy is semantic rather than automatic. Enlarge numbers only when t
 
 `:::flow` is a continuous sequence, not a row of unrelated cards. On desktop, 2–5 steps should read as one connected horizontal track with a strong step number, compact title and short explanation. A 6-step flow should split into two connected 3-step tracks rather than six narrow cards. On narrow layouts, flow steps become a vertical timeline. Keep flow copy concise enough that the skeleton is visible at a glance; move deeper explanation outside the flow when necessary.
 
-Directive values use simple `key: value` fields. Repeated fields such as `card:`, `step:`, `metric:`, `row:`, `tag:` and `item:` build repeated visual items. `:::case` media paths must resolve to archived `assets/images/sha256-...` or `assets/videos/sha256-...` files; arbitrary external media is not accepted. A video and Prompt must remain separate cases when the source does not explicitly establish their relationship. The Viewer sanitizes the resulting HTML; do not use the directive system to inject arbitrary markup or scripts.
+Directive values use simple `key: value` fields. Repeated fields such as `card:`, `step:`, `metric:`, `row:`, `tag:`, `analysis:`, `anatomy:`, `constraint:` and `item:` build repeated visual items. `:::case` media paths must resolve to archived `assets/images/sha256-...` or `assets/videos/sha256-...` files; arbitrary external media is not accepted. A video and Prompt must remain separate cases when the source does not explicitly establish their relationship. Prompt Library uses exactly one outer Case rectangle per case; nested bordered cards are prohibited. The Viewer sanitizes the resulting HTML; do not use the directive system to inject arbitrary markup or scripts.
 
 ## Rollout rule
 
-Do not transcribe every archived video before the teaching structure is validated. Start from the source article and method map, use only a small representative evidence set, then author a few public chapters first. Expand ASR/cases only when a chapter has a real evidence gap.
+Do not transcribe every archived video before the deconstruction structure is validated. Start from the source article and evidence map, use only the evidence required for the analytical conclusions, then expand ASR/cases when a chapter has a real evidence gap.
 
-For a new article, validate the learning approach on the first one or two chapters before expanding the full chapter set. Once that pilot is accepted, complete the remaining chapters using the same visual-learning contract. If the source report has a coherent chapter order, keep that order as the public learning spine while enriching the individual blocks rather than replacing the report with a separate course outline.
+For a new article, validate the deconstruction approach on the first one or two chapters before expanding the full chapter set. Once that pilot is accepted, complete the remaining chapters using the same source-deconstruction contract. If the source report has a coherent order, preserve it; if it is a fragment stream, reorganize only in the derived Explain layer and keep the canonical archive untouched.

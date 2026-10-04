@@ -92,28 +92,28 @@ Viewer：
 - 同一个 Media Block 内允许多媒体 Grid；禁止跨 Block 聚合或重排媒体。
 - 表格内视频不再保留缩略图卡高度，改为约 32px 高的“播放图标 + 视频”紧凑触发器；表格图片只保留小尺寸缩略图触发器。正文图片、正文视频和表格媒体统一进入透明 Media Dialog，不再使用黑色遮罩背景。
 - Media Dialog 支持 Esc 或点击媒体外空白区域关闭，并在关闭后把键盘焦点还给原触发器。
-- 表格在桌面 Reader 中自动分为 Compact / Standard / Wide：按列类型与各列最大文本长度估算自然目标宽度；短内容/低密度表不设人为最小宽度并按内容收缩，普通表使用受限的内容目标宽度，只有真实复杂度高、列数多或估算宽度超限的表才使用完整可用宽度；媒体列本身不再强制 Wide。各模式继续配合内容感知列宽和自动换行，窄屏统一转为带字段标签的纵向记录卡，不再依赖横向滚动条。
+- 桌面表格采用通用 AutoFit / Clamp：浏览器先按最终渲染内容测量每列自然宽度；整表能放进 Reader 时按自然宽度显示，不强行铺满；只有自然宽度超出可用空间时才铺满 Reader，并按“首选宽度 → 表头最小宽度”的可压缩空间分配列宽。禁止再用字段名、第一列身份、字符数、列数或固定语义权重决定列宽。numeric / percent / status / media 只控制视觉表达；包含百分号的长句不能因此被识别为百分比列。含 colspan / rowspan 或源 colgroup 的复杂表回退浏览器原生 auto layout；窄屏统一转为带字段标签的纵向记录卡。
 - Original Reader 支持 Long-form / Dense Note 两种自动阅读策略。Dense Note 只能由标题密度、长 Prompt/Code 密度等通用结构信号触发，禁止按具体文章名、URL 或 Block ID 写死。
 - Dense Note 不改源语义和顺序：H2/H3/H4 仍保留原标签，但视觉角色会分为 major / note / long；目录默认只显示 major，可切换“全部”；长 Prompt 使用自动换行、默认折叠、完整复制的 Prompt Card。
 - 连续短 Heading / Text 若表现为直播讲解、群聊摘录或现场速记，可进入 Commentary Stream。该模式只改变视觉角色：禁止凭空增加人物、头像、时间戳、对话方向或回复关系；major heading、媒体、代码、表格与 embed 均作为自然断点。
-- 学习版案例优先使用受控 `:::case` 指令展示标题、元信息、标签、摘要、可选本地媒体与证据边界；未被源数据明确关联的视频与 Prompt 不得自动配对。
-- 图片-only Block 与 Heading 附图必须保留；空块判断要区分“无文字”和“无内容”。飞书内嵌 Sheet 当前若没有可离线提取的单元格数据，必须输出可见 fallback，提示用户从顶部“原文”查看，而不是保留不可运行的网页壳或静默隐藏。
+- 原文深度拆解案例优先使用受控 `:::case` 指令展示标题、元信息、标签、摘要、可选本地媒体与证据边界；Prompt Library 必须保持“一案例一个一级矩形”，案例拆解、Prompt Anatomy、关键约束和完整 Prompt 处于同一 Case，Prompt 区不得再生成独立外框。未被源数据明确关联的视频与 Prompt 不得自动配对。
+- 图片-only Block 与 Heading 附图必须保留；空块判断要区分“无文字”和“无内容”。飞书内嵌 Sheet 优先通过已登录页面的 Sheet Copy / Clipboard HTML 提取单元格为普通 table，并在抓取后恢复用户剪贴板；只有提取失败时才输出可见 fallback。
 - 对未知/未来 Block 使用保守 fallback：优先保留文本或媒体，只有真正空块才跳过。
 - 对 MP4 提供 Range 支持。
-- 首页、原始 Reader、学习版统一使用单个亮/暗切换按钮；不再提供“跟随系统”的第三状态。
+- 首页、原始 Reader、原文深度拆解统一使用单个亮/暗切换按钮；不再提供“跟随系统”的第三状态。
 - 不执行原飞书页面中的脚本。
 
-### Explain 派生学习层
+### Explain 派生深度拆解层
 
 Explain 是可选能力，不改变归档主流程：
 
 - 原始 Markdown / HTML / `archive.json` / `assets/` 继续作为 Source of Truth；
 - 派生教学内容只放在 `library/<article>/explain/`，不把自定义字段写回 `archive.json`；
 - Viewer 只有在 `explain/chapters/manifest.json` 存在至少一个 `ready` 且 Markdown 文件实际存在的章节时，才显示学习入口；
-- 首页以“进入学习版”为主入口、“查看原始文章”为次入口；`/explain/<folder>/` 继续作为兼容路由并直接进入第一个可读章节，不再经过 Course Map / Lesson Landing；
+- 首页以“进入深度拆解”为主入口、“查看原始文章”为次入口；`/explain/<folder>/` 继续作为兼容路由并直接进入第一个可读章节，不再经过 Course Map / Lesson Landing；
 - 公开内容来自 `explain/chapters/`；历史 `explain/lessons/`、Evidence Cases、ASR 与 Frame 数据属于内部素材，不进入普通导航；
-- `explain/manifest.json` 保存原文 `savedAt` 与 SHA-256 指纹，原归档更新后应提示学习版重新复核；
-- 学习版默认沿用结构清晰的原报告主顺序，并对每一块做高解析度学习重构；并列、因果、对比、数据、分类与执行信息使用不同视觉语义组件，避免把所有知识压成长段落。数字必须按信息价值分层，流程必须表现为连续关系而不是独立卡片堆叠；只有真实的概念依赖冲突才允许局部调整顺序；完整教学规范见 `docs/EXPLAIN-WORKFLOW.md`；
+- `explain/manifest.json` 保存原文 `savedAt` 与 SHA-256 指纹，原归档更新后应提示深度拆解重新复核；
+- 原文深度拆解默认从原文的观点、证据、技术路线、数据边界与案例结构出发。结构清晰的报告可沿用原主顺序；现场记录/碎片资料允许按概念与决策关系重组，但必须保留来源边界，避免教师式“怎么学/先记住”口吻。并列、因果、对比、数据、分类与案例使用不同视觉语义组件；完整规范见 `docs/EXPLAIN-WORKFLOW.md`；
 - 视频证据统一使用归档 `contentHash` 作为身份，`media-index.json` 负责回溯逻辑媒体 ID、Block、上下文和物理文件；
 - ASR 是外部本地能力，Viewer 本身不能依赖 ASR 服务在线；
 - 关键帧只按明确时间点少量抽取，并通过 `frames.json` 保存时间戳与图片 SHA-256；
@@ -430,7 +430,7 @@ GET http://127.0.0.1:4173/ → 200
 - 本地 MP4 支持 Range。
 - Reader 已用 9:16、16:9、1:1、4:3、同 Block Media Grid、table-cell、透明 Media Dialog、视频点击自动播放、重复标题以及 1920/1440/1366/390 四档视口 fixture 做自动回归。
 - Reader 回归还覆盖 Splitter 拖动、宽度持久化、双击复位、键盘调整、流式正文宽度、透明 Reader Canvas、结构化 Flow/Tier 自动识别，以及桌面 Smart Table 无横向滚动与窄屏记录卡模式。
-- Dense Note 专项 fixture 覆盖高标题密度、Smart TOC 精简/全部切换、major/note/long 视觉角色、长 Prompt Card、长 URL 窄屏换行、Heading 附图、图片-only Block 与 Sheet fallback；真实 MinimaxH3 测试文档也已用于泛化验证，但真实文档 ID/URL 不写入 tracked 文件。
+- Dense Note 专项 fixture 覆盖高标题密度、Smart TOC 精简/全部切换、major/note/long 视觉角色、长 Prompt Card、长 URL 窄屏换行、Heading 附图、图片-only Block 与 Sheet fallback；Reader fixture 另覆盖已提取 Sheet 的表格渲染和单卡 Prompt Case；真实测试文档只作为本地泛化验证，不把具体 URL/ID 写入 tracked 规范。
 - 清理 Profile 可重建缓存后，登录会话仍可继续使用。
 
 不要把某个真实测试文档 ID 或 URL 写进 tracked 文件。

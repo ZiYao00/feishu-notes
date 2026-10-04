@@ -300,6 +300,7 @@ function writeArchiveFiles({ archiveDir, document, inventory, policy, pendingCon
     htmlFile: 'article.html',
     scan: document.scan || null,
     policy,
+    embeddedSheets: Array.isArray(document.embeddedSheets) ? document.embeddedSheets : [],
     storage: storageSummary(inventory),
     media: inventory.map(item => ({
       id: item.id,

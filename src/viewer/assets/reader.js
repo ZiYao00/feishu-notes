@@ -680,6 +680,13 @@
     const explainChapter = body.classList.contains('explain-chapter-reader');
     const promptSignal = /integrated_multimodal_description|subject_definitions|overall_soundscape|non_diegetic_music|retention_analysis|detailed_description|\[Shot\s*\d+\]|<Picture\s*\d+>|<Subject\s*\d+>/i;
 
+    if (explainChapter) {
+      document.querySelectorAll('.learning-case[data-prompt-case="1"]').forEach(caseNode => {
+        const candidate = caseNode.nextElementSibling;
+        if (candidate?.classList.contains('reader-block--code')) candidate.classList.add('is-case-prompt-source');
+      });
+    }
+
     document.querySelectorAll('.reader-block--code pre > code').forEach((code, index) => {
       const block = code.closest('.reader-block--code');
       const pre = code.parentElement;
@@ -688,7 +695,8 @@
       const rawText = code.textContent || '';
       const textValue = rawText.trim();
       const minimumLength = explainChapter ? 280 : 500;
-      if (textValue.length < minimumLength && !promptSignal.test(textValue)) return;
+      const forcedCasePrompt = block.classList.contains('is-case-prompt-source');
+      if (!forcedCasePrompt && textValue.length < minimumLength && !promptSignal.test(textValue)) return;
 
       const lines = rawText.split(/\r?\n/).length;
       const collapsible = textValue.length >= 900 || lines >= 18;
@@ -745,6 +753,17 @@
       header.append(identity, actions);
       block.insertBefore(header, pre);
     });
+
+    if (explainChapter) {
+      document.querySelectorAll('.learning-case[data-prompt-case="1"]').forEach(caseNode => {
+        const promptBlock = caseNode.nextElementSibling;
+        if (!promptBlock?.classList.contains('reader-prompt-card')) return;
+        promptBlock.classList.add('reader-prompt-card--embedded');
+        const promptLabel = promptBlock.querySelector('.reader-prompt-identity strong');
+        if (promptLabel) promptLabel.textContent = '完整 Prompt';
+        caseNode.appendChild(promptBlock);
+      });
+    }
   }
 
   const h3Blocks = [...document.querySelectorAll('.reader-block--heading')]
@@ -819,6 +838,7 @@
     });
   }
 
+  const percentCellPattern = /^(?:约|不足|超过|低于|高于|至多|至少|≈|~|≤|≥|<|>)?\s*(\d+(?:\.\d+)?)%\s*(?:[（(][^()（）\r\n]{0,16}[)）])?$/;
   const numericCellPattern = /^[≈~约≤≥<>]?\s*[+-]?[\d,.]+(?:\s*[-–~]\s*[\d,.]+)?(?:%|万|亿|条|秒|s|元|岁|年|次|瓶|个)?$/i;
   const statusCellPattern = /^(?:[★☆]{1,5}(?:\s*.{0,8})?|主导|辅助|高频穿插|几乎不做|高|中|低|必做|择优(?:做)?|避坑|主力)$/;
   const statusToneFor = value => {
@@ -850,7 +870,6 @@
       ? [...headerRow.cells].map((cell, index) => cell.textContent.trim() || ('第' + (index + 1) + '列'))
       : [];
     const maxColumns = Math.max(...allRows.map(row => row.cells.length));
-    const columnKinds = [];
 
     for (let column = 0; column < maxColumns; column += 1) {
       const cells = rows
@@ -860,7 +879,7 @@
       const columnCells = [headerCell, ...cells].filter(Boolean);
       const dataTexts = cells.map(cell => cell.textContent.trim()).filter(Boolean);
       const mediaCount = cells.filter(cell => cell.querySelector('.reader-media--table-cell,.table-media-trigger')).length;
-      const percentCount = dataTexts.filter(value => /(?:约\s*)?\d+(?:\.\d+)?%/.test(value)).length;
+      const percentCount = dataTexts.filter(value => percentCellPattern.test(value)).length;
       const numericCount = dataTexts.filter(value => numericCellPattern.test(value)).length;
       const statusCount = dataTexts.filter(value => statusCellPattern.test(value)).length;
       const averageLength = dataTexts.length
@@ -874,7 +893,6 @@
       else if (statusCount >= threshold) kind = 'status';
       else if (averageLength >= 18) kind = 'long';
       else if (column === 0) kind = 'label';
-      columnKinds[column] = kind;
 
       columnCells.forEach(cell => {
         cell.classList.add('reader-col-' + kind);
@@ -900,7 +918,7 @@
 
       const percentages = cells
         .map(cell => {
-          const match = cell.textContent.trim().match(/(?:约\s*)?(\d+(?:\.\d+)?)%/);
+          const match = cell.textContent.trim().match(percentCellPattern);
           return match ? { cell, value: Math.min(100, Number(match[1])) } : null;
         })
         .filter(Boolean);
@@ -913,90 +931,208 @@
       }
     }
 
-    const dataCellTexts = rows
-      .flatMap(row => [...row.cells].map(cell => cell.textContent.trim()))
-      .filter(Boolean);
-    const longestCellLength = dataCellTexts.length
-      ? Math.max(...dataCellTexts.map(value => value.length))
-      : 0;
-    const averageCellLength = dataCellTexts.length
-      ? dataCellTexts.reduce((sum, value) => sum + value.length, 0) / dataCellTexts.length
-      : 0;
-    const hasMediaColumn = columnKinds.includes('media');
-    const hasLongColumn = columnKinds.includes('long');
-    const columnMaxLengths = Array.from({ length: maxColumns }, (_, column) =>
-      Math.max(
-        0,
-        ...allRows.map(row => (row.cells[column]?.textContent || '').trim().length)
-      )
-    );
-    const estimatedTableWidth = columnMaxLengths.reduce((sum, length, column) => {
-      const kind = columnKinds[column] || (column === 0 ? 'label' : 'default');
-      if (kind === 'media') return sum + 96;
-      if (kind === 'numeric' || kind === 'percent' || kind === 'status') {
-        return sum + Math.max(82, Math.min(132, 38 + length * 10));
-      }
-      if (kind === 'long') {
-        return sum + Math.max(180, Math.min(340, 54 + length * 8));
-      }
-      if (kind === 'label' || column === 0) {
-        return sum + Math.max(92, Math.min(260, 46 + length * 14));
-      }
-      return sum + Math.max(96, Math.min(280, 46 + length * 13));
-    }, 2);
-    let tableWidthMode = 'standard';
-    if (
-      maxColumns <= 4 &&
-      longestCellLength <= 36 &&
-      averageCellLength <= 18 &&
-      estimatedTableWidth <= 760
-    ) {
-      tableWidthMode = 'compact';
-    } else if (
-      maxColumns >= 6 ||
-      estimatedTableWidth > 1080 ||
-      (maxColumns >= 5 && hasLongColumn)
-    ) {
-      tableWidthMode = 'wide';
-    }
-
-    table.classList.add('reader-smart-table--' + tableWidthMode);
-    const tableWrap = table.closest('.reader-table-wrap');
-    tableWrap?.classList.add('reader-table-wrap--' + tableWidthMode);
-    tableWrap?.style.setProperty('--reader-table-target', Math.min(1080, Math.max(220, Math.ceil(estimatedTableWidth))) + 'px');
-
     rows.forEach(row => {
       const first = row.cells[0]?.textContent.trim() || '';
       if (first.startsWith('❌')) row.classList.add('is-warning-row');
     });
+  });
+
+  const tableLayoutCache = new WeakMap();
+  const generatedTableColgroup = table =>
+    table.querySelector('colgroup[data-reader-autofit="1"]');
+
+  const clearGeneratedTableLayout = table => {
+    generatedTableColgroup(table)?.remove();
+    table.classList.remove('reader-table-layout--natural', 'reader-table-layout--clamped', 'reader-table-layout--native');
+    table.style.removeProperty('width');
+    table.style.removeProperty('max-width');
+    table.style.removeProperty('table-layout');
+
+    const wrap = table.closest('.reader-table-wrap');
+    if (!wrap) return;
+    wrap.classList.remove('reader-table-wrap--natural', 'reader-table-wrap--clamped', 'reader-table-wrap--native', 'is-measuring-table');
+    wrap.style.removeProperty('width');
+    wrap.style.removeProperty('max-width');
+    delete wrap.dataset.tableLayout;
+    delete wrap.dataset.preferredWidth;
+  };
+
+  const measureCellContentWidth = cell => {
+    if (!cell) return 56;
+    const range = document.createRange();
+    range.selectNodeContents(cell);
+    const contentWidth = range.getBoundingClientRect().width;
+    const styles = getComputedStyle(cell);
+    const horizontalChrome =
+      (parseFloat(styles.paddingLeft) || 0) +
+      (parseFloat(styles.paddingRight) || 0) +
+      (parseFloat(styles.borderLeftWidth) || 0) +
+      (parseFloat(styles.borderRightWidth) || 0);
+    return Math.ceil(contentWidth + horizontalChrome);
+  };
+
+  const measureTableColumns = table => {
+    const wrap = table.closest('.reader-table-wrap');
+    if (!wrap) return null;
+
+    const allRows = [...table.rows];
+    if (!allRows.length) return null;
 
     const hasSpans = allRows.some(row =>
       [...row.cells].some(cell => Number(cell.colSpan || 1) > 1 || Number(cell.rowSpan || 1) > 1)
     );
-    if (tableWidthMode !== 'compact' && !hasSpans && !table.querySelector('colgroup')) {
-      const sampleCells = Array.from({ length: maxColumns }, (_, column) =>
-        headerRow?.cells?.[column] || rows.find(row => row.cells[column])?.cells?.[column] || null
-      );
-      const weights = sampleCells.map((cell, column) => {
-        const kind = cell?.dataset.columnKind || (column === 0 ? 'label' : 'default');
-        if (kind === 'media') return 1.35;
-        if (kind === 'long') return 2.25;
-        if (kind === 'numeric') return 0.82;
-        if (kind === 'percent') return 0.9;
-        if (kind === 'status') return 0.95;
-        if (kind === 'label' || column === 0) return 1.35;
-        return 1.15;
-      });
-      const total = weights.reduce((sum, weight) => sum + weight, 0) || 1;
-      const colgroup = document.createElement('colgroup');
-      weights.forEach(weight => {
-        const col = document.createElement('col');
-        col.style.width = ((weight / total) * 100).toFixed(3) + '%';
-        colgroup.appendChild(col);
-      });
-      table.prepend(colgroup);
+    const hasSourceColgroup = Boolean(table.querySelector('colgroup:not([data-reader-autofit="1"])'));
+    if (hasSpans || hasSourceColgroup) {
+      return { native: true };
     }
-  });
+
+    generatedTableColgroup(table)?.remove();
+    wrap.classList.add('is-measuring-table');
+    wrap.style.width = '100%';
+    wrap.style.maxWidth = '100%';
+    table.style.width = 'max-content';
+    table.style.maxWidth = 'none';
+    table.style.tableLayout = 'auto';
+
+    const columnCount = Math.max(...allRows.map(row => row.cells.length));
+    const preferredWidths = Array.from({ length: columnCount }, (_, column) => {
+      const sample = allRows.find(row => row.cells[column])?.cells[column] || null;
+      return sample ? Math.ceil(sample.getBoundingClientRect().width) : 56;
+    });
+    const headerRow =
+      table.tHead?.rows?.[0] ||
+      allRows.find(row => row.classList.contains('reader-table-head-row')) ||
+      allRows[0];
+    const minimumWidths = preferredWidths.map((preferred, column) => {
+      const headerCell =
+        headerRow?.cells?.[column] ||
+        allRows.find(row => row.cells[column])?.cells[column] ||
+        null;
+      return Math.max(56, Math.min(preferred, measureCellContentWidth(headerCell)));
+    });
+
+    wrap.classList.remove('is-measuring-table');
+
+    const measurement = {
+      native: false,
+      preferredWidths,
+      minimumWidths,
+      preferredWidth: Math.ceil(preferredWidths.reduce((sum, width) => sum + width, 0)),
+    };
+    tableLayoutCache.set(table, measurement);
+    return measurement;
+  };
+
+  const normalizeColumnWidths = (widths, targetWidth) => {
+    const total = widths.reduce((sum, width) => sum + width, 0);
+    if (!widths.length || total <= 0) return widths;
+    const normalized = widths.map(width => width * targetWidth / total);
+    const normalizedTotal = normalized.reduce((sum, width) => sum + width, 0);
+    normalized[normalized.length - 1] += targetWidth - normalizedTotal;
+    return normalized;
+  };
+
+  const layoutSmartTable = table => {
+    const wrap = table.closest('.reader-table-wrap');
+    if (!wrap) return;
+
+    if (innerWidth <= 900) {
+      clearGeneratedTableLayout(table);
+      wrap.dataset.tableLayout = 'card';
+      return;
+    }
+
+    let measurement = tableLayoutCache.get(table);
+    if (!measurement) measurement = measureTableColumns(table);
+    if (!measurement) return;
+
+    const parentWidth = Math.floor(wrap.parentElement?.clientWidth || wrap.clientWidth || 0);
+    const wrapStyles = getComputedStyle(wrap);
+    const wrapChrome =
+      (parseFloat(wrapStyles.paddingLeft) || 0) +
+      (parseFloat(wrapStyles.paddingRight) || 0) +
+      (parseFloat(wrapStyles.borderLeftWidth) || 0) +
+      (parseFloat(wrapStyles.borderRightWidth) || 0);
+    const availableWidth = Math.max(0, parentWidth - wrapChrome);
+
+    generatedTableColgroup(table)?.remove();
+    table.classList.remove('reader-table-layout--natural', 'reader-table-layout--clamped', 'reader-table-layout--native');
+    wrap.classList.remove('reader-table-wrap--natural', 'reader-table-wrap--clamped', 'reader-table-wrap--native');
+
+    if (measurement.native || !availableWidth) {
+      wrap.classList.add('reader-table-wrap--native');
+      table.classList.add('reader-table-layout--native');
+      wrap.dataset.tableLayout = 'native';
+      wrap.style.width = 'fit-content';
+      wrap.style.maxWidth = '100%';
+      table.style.width = 'auto';
+      table.style.maxWidth = '100%';
+      table.style.tableLayout = 'auto';
+      return;
+    }
+
+    wrap.dataset.preferredWidth = String(measurement.preferredWidth);
+
+    if (measurement.preferredWidth <= availableWidth) {
+      const outerWidth = Math.min(parentWidth, measurement.preferredWidth + wrapChrome);
+      wrap.classList.add('reader-table-wrap--natural');
+      table.classList.add('reader-table-layout--natural');
+      wrap.dataset.tableLayout = 'natural';
+      wrap.style.width = Math.ceil(outerWidth) + 'px';
+      wrap.style.maxWidth = '100%';
+      table.style.width = measurement.preferredWidth + 'px';
+      table.style.maxWidth = '100%';
+      table.style.tableLayout = 'auto';
+      return;
+    }
+
+    const minimumTotal = measurement.minimumWidths.reduce((sum, width) => sum + width, 0);
+    let widths;
+    if (minimumTotal >= availableWidth) {
+      widths = normalizeColumnWidths(measurement.minimumWidths, availableWidth);
+    } else {
+      const flexibleWidths = measurement.preferredWidths.map((width, index) =>
+        Math.max(0, width - measurement.minimumWidths[index])
+      );
+      const flexibleTotal = flexibleWidths.reduce((sum, width) => sum + width, 0);
+      const remaining = availableWidth - minimumTotal;
+      widths = measurement.minimumWidths.map((minimum, index) =>
+        minimum + (flexibleTotal > 0 ? remaining * flexibleWidths[index] / flexibleTotal : remaining / measurement.minimumWidths.length)
+      );
+      widths = normalizeColumnWidths(widths, availableWidth);
+    }
+
+    const colgroup = document.createElement('colgroup');
+    colgroup.dataset.readerAutofit = '1';
+    widths.forEach(width => {
+      const col = document.createElement('col');
+      col.style.width = width.toFixed(2) + 'px';
+      colgroup.appendChild(col);
+    });
+    table.prepend(colgroup);
+
+    wrap.classList.add('reader-table-wrap--clamped');
+    table.classList.add('reader-table-layout--clamped');
+    wrap.dataset.tableLayout = 'clamped';
+    wrap.style.width = parentWidth + 'px';
+    wrap.style.maxWidth = '100%';
+    table.style.width = availableWidth + 'px';
+    table.style.maxWidth = '100%';
+    table.style.tableLayout = 'fixed';
+  };
+
+  const layoutSmartTables = () => {
+    document.querySelectorAll('.reader-table-wrap table.reader-smart-table').forEach(layoutSmartTable);
+  };
+
+  let tableLayoutFrame = 0;
+  const scheduleTableLayout = () => {
+    if (tableLayoutFrame) cancelAnimationFrame(tableLayoutFrame);
+    tableLayoutFrame = requestAnimationFrame(() => {
+      tableLayoutFrame = 0;
+      layoutSmartTables();
+    });
+  };
 
   const playIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg>';
 
@@ -1084,6 +1220,21 @@
     button.append(preview, caption);
     figure.replaceWith(button);
   });
+
+  layoutSmartTables();
+
+  const tableLayoutRoot = document.querySelector('.reader-main');
+  if (tableLayoutRoot && 'ResizeObserver' in window) {
+    let lastReaderWidth = Math.round(tableLayoutRoot.getBoundingClientRect().width);
+    const tableResizeObserver = new ResizeObserver(entries => {
+      const nextReaderWidth = Math.round(entries[0]?.contentRect?.width || 0);
+      if (!nextReaderWidth || nextReaderWidth === lastReaderWidth) return;
+      lastReaderWidth = nextReaderWidth;
+      scheduleTableLayout();
+    });
+    tableResizeObserver.observe(tableLayoutRoot);
+  }
+  addEventListener('resize', scheduleTableLayout, { passive: true });
 
   document.querySelectorAll('.reader-media--standalone .reader-video').forEach(video => {
     const figure = video.closest('.reader-media--standalone');

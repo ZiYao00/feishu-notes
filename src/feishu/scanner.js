@@ -25,6 +25,197 @@ function mediaIdentity(url) {
   return url;
 }
 
+async function backupClipboard(page) {
+  return page.evaluate(async () => {
+    const state = { mode: 'none', items: null, text: '' };
+    try {
+      const items = await navigator.clipboard.read();
+      const stored = [];
+      for (const item of items) {
+        const data = {};
+        for (const type of item.types) data[type] = await item.getType(type);
+        stored.push(data);
+      }
+      window.__feishuNotesClipboardBackup = stored;
+      state.mode = 'items';
+      return state;
+    } catch {
+      try {
+        state.text = await navigator.clipboard.readText();
+        state.mode = 'text';
+      } catch {
+        state.mode = 'none';
+      }
+      window.__feishuNotesClipboardBackupText = state.text;
+      return state;
+    }
+  });
+}
+
+async function restoreClipboard(page, backupState) {
+  if (!backupState || backupState.mode === 'none') return;
+  await page.evaluate(async state => {
+    try {
+      if (state.mode === 'items' && Array.isArray(window.__feishuNotesClipboardBackup)) {
+        const items = window.__feishuNotesClipboardBackup.map(data => new ClipboardItem(data));
+        await navigator.clipboard.write(items);
+      } else if (state.mode === 'text') {
+        await navigator.clipboard.writeText(window.__feishuNotesClipboardBackupText || '');
+      }
+    } finally {
+      delete window.__feishuNotesClipboardBackup;
+      delete window.__feishuNotesClipboardBackupText;
+    }
+  }, backupState).catch(() => {});
+}
+
+async function locateVirtualBlock(page, blockId) {
+  const selector = `.block[data-block-id="${blockId}"]`;
+  if (await page.locator(selector).count()) return true;
+
+  const dimensions = await page.evaluate(() => {
+    const container = document.querySelector('.bear-web-x-container');
+    if (!container) return null;
+    return {
+      clientHeight: container.clientHeight,
+      scrollHeight: container.scrollHeight,
+    };
+  });
+  if (!dimensions) return false;
+
+  const step = Math.max(180, Math.floor(dimensions.clientHeight * 0.3));
+  const maxTop = Math.max(0, dimensions.scrollHeight - dimensions.clientHeight);
+  for (let pos = 0; pos <= maxTop; pos += step) {
+    await page.evaluate(top => {
+      const container = document.querySelector('.bear-web-x-container');
+      if (!container) return;
+      container.scrollTop = top;
+      container.dispatchEvent(new Event('scroll', { bubbles: true }));
+    }, Math.min(pos, maxTop));
+    await page.waitForTimeout(90);
+    if (await page.locator(selector).count()) return true;
+  }
+  return false;
+}
+
+async function extractEmbeddedSheetTable(page, block) {
+  const found = await locateVirtualBlock(page, block.id);
+  if (!found) {
+    return {
+      ok: false,
+      error: 'Sheet block was not mounted during extraction.',
+    };
+  }
+
+  const selector = `.block[data-block-id="${block.id}"]`;
+  await page.locator(selector).evaluate(el => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
+  await page.waitForTimeout(700);
+
+  const ready = await page.waitForFunction(id => {
+    const blockEl = document.querySelector(`.block[data-block-id="${id}"]`);
+    const canvas = blockEl?.querySelector('.spreadsheet-canvas');
+    const rect = canvas?.getBoundingClientRect();
+    return Boolean(canvas && rect && rect.width > 100 && rect.height > 80);
+  }, block.id, { timeout: 5000 }).then(() => true).catch(() => false);
+
+  if (!ready) {
+    return {
+      ok: false,
+      error: 'Embedded Sheet canvas did not become ready.',
+    };
+  }
+
+  const sheetWrap = page.locator(`${selector} .spreadsheet-wrap`).first();
+  const box = await sheetWrap.boundingBox();
+  if (!box || box.width < 100 || box.height < 80) {
+    return {
+      ok: false,
+      error: 'Embedded Sheet has no usable rendered bounds.',
+    };
+  }
+
+  const clipboardBackup = await backupClipboard(page);
+  try {
+    await sheetWrap.click({
+      position: {
+        x: Math.max(16, Math.min(180, box.width * 0.16)),
+        y: Math.max(16, Math.min(72, box.height * 0.2)),
+      },
+    });
+    await page.waitForTimeout(120);
+    await page.keyboard.press('Control+A');
+    await page.waitForTimeout(80);
+    await page.keyboard.press('Control+C');
+    await page.waitForTimeout(180);
+
+    const clipboard = await page.evaluate(async () => {
+      const result = { text: '', html: '', table: null };
+      try {
+        result.text = await navigator.clipboard.readText();
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          if (!item.types.includes('text/html')) continue;
+          const blob = await item.getType('text/html');
+          result.html = await blob.text();
+          break;
+        }
+      } catch {
+        return result;
+      }
+
+      if (!result.html) return result;
+      const parsed = new DOMParser().parseFromString(result.html, 'text/html');
+      const tableEl = parsed.querySelector('table');
+      if (!tableEl) return result;
+
+      result.table = [...tableEl.querySelectorAll('tr')].map((row, rowIndex) => {
+        const cells = [...row.children].filter(cell => cell.tagName === 'TD' || cell.tagName === 'TH');
+        const formattedHeaderRow = cells.length > 0 && cells.every(cell => {
+          const fontWeight = cell.style?.fontWeight || '';
+          const numeric = Number(fontWeight);
+          return cell.tagName === 'TH' || fontWeight === 'bold' || (Number.isFinite(numeric) && numeric >= 600);
+        });
+        return cells.map(cell => ({
+          tag: cell.tagName.toLowerCase(),
+          text: (cell.textContent || '').replace(/\u00a0/g, ' ').trim(),
+          isHeader: cell.tagName === 'TH' || (rowIndex === 0 && formattedHeaderRow),
+          colspan: Number(cell.getAttribute('colspan') || 1),
+          rowspan: Number(cell.getAttribute('rowspan') || 1),
+          media: [],
+        }));
+      }).filter(row => row.length);
+      return result;
+    });
+
+    if (!Array.isArray(clipboard.table) || !clipboard.table.length) {
+      return {
+        ok: false,
+        error: 'Feishu Sheet copy did not expose a table payload.',
+      };
+    }
+
+    const columnCount = Math.max(...clipboard.table.map(row =>
+      row.reduce((sum, cell) => sum + Math.max(1, cell.colspan || 1), 0)
+    ));
+
+    return {
+      ok: true,
+      table: clipboard.table,
+      metadata: {
+        blockId: block.id,
+        recordId: block.recordId || null,
+        extractionMethod: 'feishu-clipboard-html',
+        rowCount: clipboard.table.length,
+        columnCount,
+        copiedTextLength: clipboard.text.length,
+      },
+    };
+  } finally {
+    await page.keyboard.press('Escape').catch(() => {});
+    await restoreClipboard(page, clipboardBackup);
+  }
+}
+
 async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
   const browser = await chromium.connectOverCDP(cdpEndpoint);
   const contexts = browser.contexts();
@@ -84,6 +275,15 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
 
   const blocks = new Map();
   const media = new Map();
+  const embeddedSheets = [];
+  const extractedSheetIds = new Set();
+  let clipboardPermissionsGranted = false;
+  const ensureClipboardPermissions = async () => {
+    if (clipboardPermissionsGranted) return;
+    const origin = new URL(page.url()).origin;
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin }).catch(() => {});
+    clipboardPermissionsGranted = true;
+  };
   const visibleLength = value => String(value || '').replace(/\p{Cf}/gu, '').trim().length;
   const mergeTableSnapshots = (previousTable, nextTable) => {
     if (!previousTable) return nextTable;
@@ -253,6 +453,7 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
 
         return {
           id: el.getAttribute('data-block-id'),
+          recordId: el.getAttribute('data-record-id') || null,
           className: typeof el.className === 'string' ? el.className : '',
           text: el.innerText || '',
           html: clone.outerHTML,
@@ -263,6 +464,25 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
     });
 
     for (const item of snapshot) {
+      if (/docx-sheet-block/.test(item.className || '') && !extractedSheetIds.has(item.id)) {
+        await ensureClipboardPermissions();
+        let extracted = null;
+        try {
+          extracted = await extractEmbeddedSheetTable(page, item);
+        } catch {
+          extracted = null;
+        }
+        if (extracted?.ok) {
+          item.table = extracted.table;
+          item.sheetExtraction = extracted.metadata;
+          extractedSheetIds.add(item.id);
+          embeddedSheets.push({
+            ...extracted.metadata,
+            status: 'extracted',
+          });
+        }
+      }
+
       const previous = blocks.get(item.id);
       if (!previous) {
         blocks.set(item.id, item);
@@ -357,6 +577,47 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
     }
   }
 
+  const sheetBlocks = [...blocks.values()].filter(block =>
+    /docx-sheet-block/.test(block.className || '')
+  );
+
+  if (sheetBlocks.length) {
+    await ensureClipboardPermissions();
+
+    for (const block of sheetBlocks) {
+      if (extractedSheetIds.has(block.id)) continue;
+
+      let extracted;
+      try {
+        extracted = await extractEmbeddedSheetTable(page, block);
+      } catch (error) {
+        extracted = { ok: false, error: error.message };
+      }
+
+      if (extracted.ok) {
+        const next = {
+          ...block,
+          table: extracted.table,
+          sheetExtraction: extracted.metadata,
+        };
+        blocks.set(block.id, next);
+        extractedSheetIds.add(block.id);
+        embeddedSheets.push({
+          ...extracted.metadata,
+          status: 'extracted',
+        });
+      } else {
+        embeddedSheets.push({
+          blockId: block.id,
+          recordId: block.recordId || null,
+          extractionMethod: 'feishu-clipboard-html',
+          status: 'failed',
+          error: extracted.error || 'Unknown Sheet extraction error.',
+        });
+      }
+    }
+  }
+
   await page.evaluate(() => {
     const container = document.querySelector('.bear-web-x-container');
     if (container) {
@@ -383,6 +644,7 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
       scan: { scans, maxHeightSeen, blockCount: orderedBlocks.length },
       blocks: orderedBlocks,
       media: [...media.values()],
+      embeddedSheets,
     },
   };
 }

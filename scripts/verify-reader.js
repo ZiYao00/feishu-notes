@@ -314,6 +314,111 @@ async function main() {
           ],
         ],
       },
+      {
+        id: '305',
+        className: 'docx-table-block',
+        text: '',
+        html: '',
+        media: [],
+        table: [
+          [
+            { tag: 'td', text: '投放目的', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '判断依据', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '占比（在投口径）', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: '转化（首要）', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '直播引流型 39,613 条＝68.2%；台词高频含“点击看看/进直播间/拍一发六”', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '主导', colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: '种草（次）', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '商品广告型 22,381 条＝38.5%（与直播引流重叠，一条素材多计划复用）', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '辅助', colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: '复购/囤货', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '买一次管一年、够你用一学期、多囤两瓶、第四瓶29.9', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '高频穿插', colspan: 1, rowspan: 1, media: [] },
+          ],
+        ],
+      },
+      {
+        id: '306',
+        className: 'docx-table-block',
+        text: '',
+        html: '',
+        media: [],
+        table: [
+          [
+            { tag: 'td', text: '编号', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '类型', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '核心创作思路', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '内容结构', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '转化引导', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: 'F1', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '手部操作＋口播', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '人不出镜、只有手，把预算集中在动作真实感和产品使用过程的可信度上；同时需要解释为什么这一动作可信、为什么该场景值得立即处理，以及用户在几秒内应该看到什么证据变化。', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '恐惧断言→手持喷洒→前后对比→数字证据→促销机制，连续信息必须保持可扫描；镜头之间还要维持动作连续性、产品位置一致性和证据出现顺序，避免为了塞内容而让关键步骤挤在一列里。', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '口语直推“你就买一瓶回去试试”，同时承接直播间机制和限时利益点', colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: 'F2', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '无口播纯字幕', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '用多条广告语承担口播功能，通过低拍摄成本快速测试不同开场与利益点组合；每个版本都保留相同产品动作，只替换前3秒钩子、证据顺序与利益点表达，便于横向比较。', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '恐惧字幕→功效字幕→使用场景→品牌背书→直播机制，长列应该获得明显更多空间；如果整张表超过 Reader 可用宽度，应压缩这些长列而不是把编号、状态等短列平均撑宽。', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '直播间承接，并保留可替换的促销机制和倒计时信息', colspan: 1, rowspan: 1, media: [] },
+          ],
+        ],
+      },
+      {
+        id: '307',
+        className: 'docx-table-block',
+        text: '',
+        html: '',
+        media: [],
+        table: [
+          [
+            { tag: 'td', text: '合并单元格示例', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '说明', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: '跨两列内容保持浏览器原生布局', colspan: 2, rowspan: 1, media: [] },
+          ],
+        ],
+      },
+      {
+        id: '308',
+        recordId: 'fixture-sheet-record',
+        className: 'docx-sheet-block',
+        text: '',
+        html: '<div class="docx-sheet-block"><canvas class="spreadsheet-canvas"></canvas></div>',
+        media: [],
+        sheetExtraction: {
+          extractionMethod: 'feishu-clipboard-html',
+          rowCount: 3,
+          columnCount: 3,
+        },
+        table: [
+          [
+            { tag: 'td', text: '插件', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '原生 H3', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: 'FastH3 V2', isHeader: true, colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: 'SageAttention', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '高', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '可用', colspan: 1, rowspan: 1, media: [] },
+          ],
+          [
+            { tag: 'td', text: 'Sol-Attn', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '高', colspan: 1, rowspan: 1, media: [] },
+            { tag: 'td', text: '不兼容', colspan: 1, rowspan: 1, media: [] },
+          ],
+        ],
+      },
     ],
   };
 
@@ -528,7 +633,7 @@ async function main() {
   fs.mkdirSync(chaptersRoot, { recursive: true });
   fs.writeFileSync(path.join(chaptersRoot, 'manifest.json'), JSON.stringify({
     version: 1,
-    title: 'Reader Fixture · 学习版',
+    title: 'Reader Fixture · 原文深度拆解',
     chapters: [
       {
         id: '00-start',
@@ -619,9 +724,14 @@ async function main() {
     ':::case',
     'title: Prompt 案例组件',
     'meta: 15s · 9:16',
+    'prompt: true',
     'tag: 产品广告',
     'tag: 未配对视频',
-    'body: 验证学习版案例卡可以独立展示案例元信息。',
+    'body: 验证深度拆解案例把分析与完整 Prompt 合并进同一个一级容器。',
+    'analysis: 产品 → 人物 → 产品形成闭环。',
+    'anatomy: Subject Definitions',
+    'anatomy: Detailed Description',
+    'constraint: 产品身份保持稳定。',
     'note: 视频与 Prompt 不做无证据强绑定。',
     ':::',
     '',
@@ -662,7 +772,7 @@ async function main() {
     assert.strictEqual(await page.locator('a.btn-primary').count(), 1);
     assert.strictEqual(await page.locator('a.btn-secondary').count(), 2);
 
-    assert.strictEqual((await page.locator('a.btn-primary').first().innerText()).includes('进入学习版'), true);
+    assert.strictEqual((await page.locator('a.btn-primary').first().innerText()).includes('进入深度拆解'), true);
     assert.strictEqual((await page.locator('a.btn-secondary').first().innerText()).includes('查看原始文章'), true);
     assert.strictEqual(await page.locator('[data-theme-toggle]').count(), 1);
 
@@ -689,10 +799,32 @@ async function main() {
     assert.strictEqual(await page.locator('.learning-card-meta.is-numeric').count(), 1);
     assert.strictEqual(await page.locator('.learning-takeaway').count(), 1);
     assert.strictEqual(await page.locator('.learning-case').count(), 1);
+    assert.strictEqual(await page.locator('.learning-case--prompt').count(), 1);
     assert.strictEqual(await page.locator('.learning-case-tag').count(), 2);
-    assert.strictEqual(await page.locator('.reader-prompt-card').count(), 1);
+    assert.strictEqual(await page.locator('.learning-case-analysis').count(), 1);
+    assert.strictEqual(await page.locator('.learning-case-anatomy li').count(), 2);
+    assert.strictEqual(await page.locator('.learning-case-constraints').count(), 1);
+    assert.strictEqual(await page.locator('.learning-case--prompt > .reader-prompt-card--embedded').count(), 1);
+    assert.strictEqual(await page.locator('.reader-article > .reader-prompt-card').count(), 1);
+    assert.strictEqual(await page.locator('.reader-prompt-card').count(), 2);
     assert.strictEqual(await page.locator('.reader-prompt-card.is-collapsed').count(), 1);
-    assert.strictEqual(await page.locator('.reader-prompt-action').count(), 2);
+    assert.strictEqual(await page.locator('.reader-prompt-action').count(), 3);
+    const embeddedPromptStyle = await page.evaluate(() => {
+      const prompt = document.querySelector('.learning-case--prompt > .reader-prompt-card--embedded');
+      const style = getComputedStyle(prompt);
+      return {
+        borderLeft: style.borderLeftWidth,
+        borderRight: style.borderRightWidth,
+        borderBottom: style.borderBottomWidth,
+        borderRadius: style.borderRadius,
+        boxShadow: style.boxShadow,
+      };
+    });
+    assert.strictEqual(embeddedPromptStyle.borderLeft, '0px');
+    assert.strictEqual(embeddedPromptStyle.borderRight, '0px');
+    assert.strictEqual(embeddedPromptStyle.borderBottom, '0px');
+    assert.strictEqual(embeddedPromptStyle.borderRadius, '0px');
+    assert.strictEqual(embeddedPromptStyle.boxShadow, 'none');
     const learningTypeScale = await page.evaluate(() => ({
       metric: parseFloat(getComputedStyle(document.querySelector('.learning-metric strong')).fontSize),
       flow: parseFloat(getComputedStyle(document.querySelector('.learning-flow-number')).fontSize),
@@ -767,6 +899,29 @@ async function main() {
           height: Math.round(box.height),
         };
       };
+      const tableProfile = blockId => {
+        const block = document.querySelector('.reader-block--table[data-block-id="' + blockId + '"]');
+        const wrap = block?.querySelector('.reader-table-wrap');
+        const table = wrap?.querySelector('table');
+        if (!block || !wrap || !table) return null;
+        const headerRow = table.rows[0] || null;
+        return {
+          layout: wrap.dataset.tableLayout || '',
+          preferredWidth: Number(wrap.dataset.preferredWidth || 0),
+          wrapWidth: Math.round(wrap.getBoundingClientRect().width),
+          blockWidth: Math.round(block.getBoundingClientRect().width),
+          overflow: wrap.scrollWidth > wrap.clientWidth + 1,
+          columns: headerRow ? [...headerRow.cells].map((cell, column) => ({
+            label: cell.textContent.trim(),
+            kind: cell.dataset.columnKind || '',
+            width: Math.round(cell.getBoundingClientRect().width),
+            maxLength: Math.max(
+              0,
+              ...[...table.rows].slice(1).map(row => row.cells[column]).filter(Boolean).map(item => item.textContent.trim().length)
+            ),
+          })) : [],
+        };
+      };
       const mediaGrid = document.querySelector('.reader-block--media.is-media-grid');
       const tableTriggers = [...document.querySelectorAll('.table-media-trigger')];
       const paper = getComputedStyle(document.querySelector('.reader-paper'));
@@ -792,9 +947,22 @@ async function main() {
         maxTableImageTriggerHeight: Math.max(0, ...tableTriggers.filter(item => item.dataset.mediaKind === 'image').map(item => Math.round(item.getBoundingClientRect().height))),
         tableVideos: document.querySelectorAll('table video').length,
         tableFits: [...document.querySelectorAll('.reader-table-wrap')].every(item => item.scrollWidth <= item.clientWidth + 1),
-        compactTable: rect('.reader-table-wrap--compact'),
-        standardTable: rect('.reader-table-wrap--standard'),
-        wideTableCount: document.querySelectorAll('.reader-table-wrap--wide').length,
+        naturalTableCount: document.querySelectorAll('.reader-table-wrap[data-table-layout="natural"]').length,
+        clampedTableCount: document.querySelectorAll('.reader-table-wrap[data-table-layout="clamped"]').length,
+        nativeTableCount: document.querySelectorAll('.reader-table-wrap[data-table-layout="native"]').length,
+        tableProfiles: {
+          media: tableProfile('301'),
+          wide: tableProfile('302'),
+          metrics: tableProfile('303'),
+          short: tableProfile('304'),
+          percentText: tableProfile('305'),
+          shortKey: tableProfile('306'),
+          spans: tableProfile('307'),
+          sheet: tableProfile('308'),
+        },
+        sheetFallbacks: document.querySelectorAll('[data-block-id="308"] .reader-sheet-fallback').length,
+        sheetRows: document.querySelectorAll('[data-block-id="308"] table tr').length,
+        sheetColumns: document.querySelector('[data-block-id="308"] table tr')?.cells.length || 0,
         inferredHeaderRows: document.querySelectorAll('.reader-table-head-row.is-inferred').length,
         structuredFlowSteps: document.querySelectorAll('.reader-structured-flow-step').length,
         structuredTierGroups: document.querySelectorAll('.reader-tier-group').length,
@@ -841,10 +1009,23 @@ async function main() {
     assert.ok(desktop1920.maxTableImageTriggerHeight <= 56);
     assert.strictEqual(desktop1920.tableVideos, 0);
     assert.strictEqual(desktop1920.tableFits, true);
-    assert.ok(desktop1920.compactTable.width >= 220 && desktop1920.compactTable.width < 420);
-    assert.ok(desktop1920.standardTable.width > desktop1920.compactTable.width);
-    assert.ok(desktop1920.standardTable.width <= 1080);
-    assert.strictEqual(desktop1920.wideTableCount, 1);
+    assert.ok(desktop1920.naturalTableCount >= 4);
+    assert.ok(desktop1920.clampedTableCount >= 1);
+    assert.ok(desktop1920.nativeTableCount >= 1);
+    assert.strictEqual(desktop1920.tableProfiles.metrics.layout, 'natural');
+    assert.ok(desktop1920.tableProfiles.metrics.wrapWidth < desktop1920.tableProfiles.metrics.blockWidth * 0.5);
+    assert.strictEqual(desktop1920.tableProfiles.shortKey.layout, 'clamped');
+    assert.ok(Math.abs(desktop1920.tableProfiles.shortKey.wrapWidth - desktop1920.tableProfiles.shortKey.blockWidth) <= 2);
+    assert.strictEqual(desktop1920.tableProfiles.percentText.columns[1].kind, 'long');
+    assert.ok(desktop1920.tableProfiles.percentText.columns[1].width > desktop1920.tableProfiles.percentText.columns[0].width * 2);
+    assert.ok(desktop1920.tableProfiles.percentText.columns[1].width > desktop1920.tableProfiles.percentText.columns[2].width * 2);
+    assert.ok(desktop1920.tableProfiles.shortKey.columns[0].width < desktop1920.tableProfiles.shortKey.columns[2].width * 0.5);
+    assert.ok(desktop1920.tableProfiles.shortKey.columns[0].width < desktop1920.tableProfiles.shortKey.columns[3].width * 0.5);
+    assert.strictEqual(desktop1920.tableProfiles.spans.layout, 'native');
+    assert.ok(desktop1920.tableProfiles.sheet);
+    assert.strictEqual(desktop1920.sheetFallbacks, 0);
+    assert.strictEqual(desktop1920.sheetRows, 3);
+    assert.strictEqual(desktop1920.sheetColumns, 3);
     assert.strictEqual(desktop1920.inferredHeaderRows, 1);
     assert.strictEqual(desktop1920.structuredFlowSteps, 5);
     assert.strictEqual(desktop1920.structuredTierGroups, 3);
@@ -871,18 +1052,27 @@ async function main() {
     await page.mouse.up();
     await page.waitForTimeout(80);
 
-    const resized = await page.evaluate(() => ({
-      tocWidth: Math.round(document.querySelector('.reader-toc').getBoundingClientRect().width),
-      mainWidth: Math.round(document.querySelector('.reader-main').getBoundingClientRect().width),
-      textWidth: Math.round(document.querySelector('.reader-block--text').getBoundingClientRect().width),
-      tableWidth: Math.round(document.querySelector('.reader-block--table').getBoundingClientRect().width),
-      storedWidth: Number(localStorage.getItem('feishu-notes-toc-width')),
-      ariaNow: Number(document.querySelector('[data-reader-splitter]').getAttribute('aria-valuenow')),
-    }));
+    const resized = await page.evaluate(() => {
+      const wideWrap = document.querySelector('.reader-block--table[data-block-id="306"] .reader-table-wrap');
+      return {
+        tocWidth: Math.round(document.querySelector('.reader-toc').getBoundingClientRect().width),
+        mainWidth: Math.round(document.querySelector('.reader-main').getBoundingClientRect().width),
+        textWidth: Math.round(document.querySelector('.reader-block--text').getBoundingClientRect().width),
+        tableWidth: Math.round(document.querySelector('.reader-block--table').getBoundingClientRect().width),
+        wideWrapWidth: Math.round(wideWrap.getBoundingClientRect().width),
+        wideLayout: wideWrap.dataset.tableLayout || '',
+        wideOverflow: wideWrap.scrollWidth > wideWrap.clientWidth + 1,
+        storedWidth: Number(localStorage.getItem('feishu-notes-toc-width')),
+        ariaNow: Number(document.querySelector('[data-reader-splitter]').getAttribute('aria-valuenow')),
+      };
+    });
     assert.ok(resized.tocWidth >= desktop1920.toc.width + 180);
     assert.ok(resized.mainWidth < desktop1920.main.width - 170);
     assert.ok(Math.abs(resized.textWidth - desktop1920.text.width) <= 2);
     assert.ok(resized.tableWidth < desktop1920.table.width - 170);
+    assert.strictEqual(resized.wideLayout, 'clamped');
+    assert.strictEqual(resized.wideOverflow, false);
+    assert.ok(resized.wideWrapWidth < desktop1920.tableProfiles.shortKey.wrapWidth - 170);
     assert.ok(Math.abs(resized.storedWidth - resized.tocWidth) <= 1);
     assert.ok(Math.abs(resized.ariaNow - resized.tocWidth) <= 1);
 
@@ -980,12 +1170,15 @@ async function main() {
           tocToggleVisible: getComputedStyle(document.querySelector('.reader-toc-toggle')).display !== 'none',
           tableFits: [...document.querySelectorAll('.reader-table-wrap')].every(table => table.scrollWidth <= table.clientWidth + 1),
           tableCardMode: firstCard ? getComputedStyle(firstCard).display === 'block' : false,
+          cardLayoutCount: document.querySelectorAll('.reader-table-wrap[data-table-layout="card"]').length,
+          tableCount: document.querySelectorAll('.reader-table-wrap').length,
         };
       });
       assert.strictEqual(result.pageOverflow, false);
       assert.strictEqual(result.tocToggleVisible, viewport.mobileToc);
       assert.strictEqual(result.tableFits, true);
       assert.strictEqual(result.tableCardMode, viewport.width <= 900);
+      assert.strictEqual(result.cardLayoutCount === result.tableCount, viewport.width <= 900);
       responsive.push(result);
     }
 

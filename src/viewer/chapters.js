@@ -59,7 +59,7 @@ function getChapterSummary(articleDir, archiveManifest) {
   const source = sourceState(articleDir, archiveManifest, explainManifest);
 
   return {
-    title: chapterManifest.title || '学习版',
+    title: chapterManifest.title || '原文深度拆解',
     description: chapterManifest.description || '',
     chapterCount: chapters.length,
     readyChapterCount: ready.length,
@@ -228,9 +228,17 @@ function renderLearningDirective(type, fields) {
   if (type === 'case') {
     const meta = renderInline(firstField(fields, 'meta'));
     const note = renderInline(firstField(fields, 'note'));
+    const promptCase = /^(?:1|true|yes)$/i.test(firstField(fields, 'prompt'));
     const tags = fieldList(fields, 'tag')
       .map(tag => '<span class="learning-case-tag">' + renderInline(tag) + '</span>')
       .join('');
+    const renderCaseList = (label, values, className) => values.length
+      ? '<div class="learning-case-section ' + className + '"><div class="learning-case-section-title">' + label +
+        '</div><ul>' + values.map(value => '<li>' + renderInline(value) + '</li>').join('') + '</ul></div>'
+      : '';
+    const analyses = fieldList(fields, 'analysis');
+    const anatomy = fieldList(fields, 'anatomy');
+    const constraints = fieldList(fields, 'constraint');
     const video = safeLearningAsset(firstField(fields, 'video'), 'video');
     const image = safeLearningAsset(firstField(fields, 'image'), 'image');
     let media = '';
@@ -242,7 +250,8 @@ function renderLearningDirective(type, fields) {
         '<img class="reader-image" src="' + escapeHtml(image) + '" alt="' + escapeHtml(firstField(fields, 'title') || '案例图片') + '"></figure>';
     }
 
-    return '<section class="learning-block learning-case">' +
+    return '<section class="learning-block learning-case' + (promptCase ? ' learning-case--prompt' : '') + '"' +
+      (promptCase ? ' data-prompt-case="1"' : '') + '>' +
       '<div class="learning-case-head"><div>' +
       (title ? '<div class="learning-case-title">' + title + '</div>' : '') +
       (meta ? '<div class="learning-case-meta">' + meta + '</div>' : '') +
@@ -251,6 +260,9 @@ function renderLearningDirective(type, fields) {
       '</div>' +
       (body ? '<p class="learning-case-summary">' + body + '</p>' : '') +
       media +
+      renderCaseList('案例拆解', analyses, 'learning-case-analysis') +
+      renderCaseList('Prompt 结构', anatomy, 'learning-case-anatomy') +
+      renderCaseList('关键约束', constraints, 'learning-case-constraints') +
       (note ? '<div class="learning-case-note">' + note + '</div>' : '') +
       '</section>';
   }
@@ -479,12 +491,12 @@ function renderChapterReader(options) {
     : '<span class="chapter-pager-link is-next is-disabled"><span>下一章 →</span><strong>已到最后一章</strong></span>';
 
   const staleMeta = source.stale ? '<span class="reader-status partial">原文已更新，待复核</span>' : '';
-  const chapterMeta = '学习版 · ' + escapeHtml(selected.number || String(readyIndex + 1).padStart(2, '0')) + ' / ' + String(readyChapters.length).padStart(2, '0');
+  const chapterMeta = '原文深度拆解 · ' + escapeHtml(selected.number || String(readyIndex + 1).padStart(2, '0')) + ' / ' + String(readyChapters.length).padStart(2, '0');
 
   return '<!doctype html><html lang="zh-CN"><head>' +
     '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<base href="/library/' + encodedFolder + '/">' +
-    '<title>' + escapeHtml(selected.title || selected.label || selected.id) + ' · ' + escapeHtml(chapterManifest.title || '学习版') + '</title>' +
+    '<title>' + escapeHtml(selected.title || selected.label || selected.id) + ' · ' + escapeHtml(chapterManifest.title || '原文深度拆解') + '</title>' +
     '<script src="/_viewer/theme-init.js"></script>' +
     '<link rel="stylesheet" href="/_viewer/reader.css"><script src="/_viewer/reader.js" defer></script>' +
     '</head><body class="explain-chapter-reader">' +
@@ -494,9 +506,9 @@ function renderChapterReader(options) {
     '<div class="reader-titlebar-meta"><span>' + chapterMeta + '</span>' + staleMeta + '</div></div>' +
     '<div class="reader-toolbar"><a class="reader-action" href="/note/' + encodedFolder + '/">查看原始文章</a>' + renderThemeControl() + '</div>' +
     '<div class="reader-progress"><span data-reader-progress></span></div></header>' +
-    '<div class="chapter-mobile-nav"><label for="chapter-select">章节</label><select id="chapter-select" data-chapter-select aria-label="选择学习章节">' + mobileOptions + '</select></div>' +
-    '<div class="chapter-reader-layout"><aside class="chapter-sidebar" aria-label="学习章节">' +
-    '<div class="chapter-sidebar-head"><strong>' + escapeHtml(chapterManifest.title || '学习版') + '</strong></div>' +
+    '<div class="chapter-mobile-nav"><label for="chapter-select">章节</label><select id="chapter-select" data-chapter-select aria-label="选择拆解章节">' + mobileOptions + '</select></div>' +
+    '<div class="chapter-reader-layout"><aside class="chapter-sidebar" aria-label="拆解章节">' +
+    '<div class="chapter-sidebar-head"><strong>' + escapeHtml(chapterManifest.title || '原文深度拆解') + '</strong></div>' +
     '<nav class="chapter-nav">' + nav + '</nav></aside>' +
     '<main class="chapter-main"><div class="reader-paper"><div class="reader-content">' + article +
     '<nav class="chapter-pager" aria-label="章节翻页">' + previousHtml + nextHtml + '</nav>' +

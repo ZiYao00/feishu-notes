@@ -88,8 +88,8 @@ function renderIndex(items) {
     const encodedFolder = encodeURIComponent(item.folder);
     const explain = item.explain
       ? `<a class="btn btn-primary" href="/explain/${encodedFolder}/">
-          <span>进入学习版</span>
-          <small>${item.explain.sourceStale ? '来源需复核' : '从导读开始'}</small>
+          <span>进入深度拆解</span>
+          <small>${item.explain.sourceStale ? '来源需复核' : '从原文总览开始'}</small>
         </a>`
       : '';
 
@@ -149,7 +149,7 @@ h1{font-size:30px;line-height:1.2;letter-spacing:-.02em;margin:0;color:var(--str
 </head>
 <body>
 <main>
-<header><div><h1>feishu-notes</h1><p>本地飞书笔记归档 · 原始资料与学习版</p></div><div class="header-tools"><button type="button" class="theme-toggle" data-theme-toggle aria-label="切换到暗色模式" title="切换到暗色模式" aria-pressed="false"></button><div class="count">${items.length} 篇</div></div></header>
+<header><div><h1>feishu-notes</h1><p>本地飞书笔记归档 · 原始资料与原文深度拆解</p></div><div class="header-tools"><button type="button" class="theme-toggle" data-theme-toggle aria-label="切换到暗色模式" title="切换到暗色模式" aria-pressed="false"></button><div class="count">${items.length} 篇</div></div></header>
 ${items.length ? `<section class="grid">${cards}</section>` : '<div class="empty">library 里还没有归档文章。</div>'}
 </main>
 </body>

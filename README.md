@@ -96,17 +96,17 @@ data/profiles/<profile>/
 - 同一个 Media Block 内的多个媒体允许自动 Grid；绝不跨 Block 重排媒体。
 - 正文视频按原始横/竖比例自适应；表格视频使用约 32px 高的“播放图标 + 视频”紧凑触发器，表格图片使用小缩略图触发器；这些媒体统一进入 Media Dialog，视频由用户点击后自动开始播放。
 - 正文图片限制显示尺寸并支持点击放大；图片与视频共用透明背景的媒体弹窗，可用 Esc 或点击媒体外空白区域退出。
-- 表格在桌面端自动分为 Compact / Standard / Wide：按列类型和各列文本长度估算自然目标宽度，短内容/低密度表取消人为最小宽度并按内容收缩，普通表使用受限的内容目标宽度，只有真正复杂或超宽的表才使用完整 Reader 宽度；媒体列本身不强制 Wide。窄屏统一转换为带字段标签的记录卡，不依赖横向滚动条。
+- 桌面表格采用 Excel 式 AutoFit / Clamp：先由浏览器测量最终内容的自然列宽，能放下时按内容宽度显示；超过 Reader 可用宽度时才铺满并按各列可压缩空间重新分配。列名、第一列、字符数、列数以及 numeric / percent / status / media 等语义类型都不再参与宽度决策；复杂合并单元格保守回退原生 auto layout。窄屏统一转换为带字段标签的记录卡，不依赖横向滚动条。
 - Original Reader 会根据通用结构信号自动区分 Long-form 与 Dense Note：高标题密度/Prompt-heavy 技术笔记保留源语义不变，但视觉上把标题分成章节、知识点、长笔记，并默认只显示精简目录；长 Prompt 使用可换行、可折叠、可复制的 Prompt Card。
 - Dense Note 中连续的一句话式讲解记录可自动进入 Commentary Stream：用克制的时间线/记录流恢复“现场讲解”阅读语义，但不虚构发言人、时间戳或聊天回复关系；章节、媒体、代码、表格和嵌入内容会主动断开记录流。
-- 学习版支持 `:::case` 案例组件，可组织案例标题、摘要、标签和本地媒体；视频与 Prompt 只有在原文存在明确关系时才绑定，否则分别保留为 Video Gallery 与 Prompt Library。
-- 图片-only Block 不再被误判为空；Heading 附带媒体继续保留；飞书内嵌 Sheet 若暂时无法提取单元格数据，会显示明确的离线降级卡而不是静默消失。
+- 原文深度拆解支持 `:::case` 案例组件；Prompt Library 采用“一案例一个外框”，案例标题、摘要、标签、拆解、Prompt 结构、关键约束与完整 Prompt 都在同一 Case 内，Prompt 区只用分隔线/浅背景，不再形成第二张卡。视频与 Prompt 只有原文存在明确关系时才绑定，否则分别保留为 Video Gallery 与 Prompt Library。
+- 图片-only Block 不再被误判为空；Heading 附带媒体继续保留；飞书内嵌 Sheet 会优先通过已登录页面的复制/剪贴板 HTML 提取为真实二维表格并离线保存，抓取后恢复原剪贴板；只有提取失败时才显示明确的 fallback。
 - 对暂未识别的未来 Block 使用保守降级：优先保留文本或媒体，避免静默丢内容。
 - 本地视频支持 HTTP Range，可在浏览器拖动播放进度。
-- 可选建立 `explain/` 派生学习层：技术目录与路由继续使用 Explain 命名，公开 UI 统一称“学习版”；保留原始归档不变，Viewer 首页以“进入学习版”为主入口、“查看原始文章”为次入口。
+- 可选建立 `explain/` 派生深度拆解层：技术目录与路由继续使用 Explain 命名，公开 UI 统一称“原文深度拆解”；保留原始归档不变，Viewer 首页以“进入深度拆解”为主入口、“查看原始文章”为次入口。
 - 公开学习内容使用 `explain/chapters/manifest.json + chapters/*.md`；桌面端用左侧章节导航，窄屏使用顶部章节选择，只展示 `ready` 且文件存在的章节。结构完整的原报告默认保留原维度顺序，并可使用受控的视觉学习语义块（对照、数据、流程、比较、分类、总结）减少连续长文阅读压力。
 - Explain 证据链以视频 `contentHash` 为唯一身份，ASR、关键帧、案例等内部素材均可回溯到原始媒体及 Block 位置。
-- Viewer 首页、原始文章与学习版统一使用单个亮/暗切换按钮，并通过 `feishu-notes-theme` 在本机持久化。
+- Viewer 首页、原始文章与原文深度拆解统一使用单个亮/暗切换按钮，并通过 `feishu-notes-theme` 在本机持久化。
 - 清理 Chrome 可重建缓存，同时保留登录状态。
 - 输出格式不绑定 Obsidian；其它 Markdown 工具也可以读取。
 
@@ -275,10 +275,10 @@ npm run verify:reader
 - 表格视频转约 32px 高的图标/文字触发器，表格图片转小缩略图触发器，正文视频也作为统一媒体触发器；
 - 透明 Media Dialog、视频点击后自动播放、Esc/空白区域关闭与焦点返回；
 - 原始文章中的结构化伪代码可自动识别为 Flow / Tier；重复标题继续使用稳定 Block Anchor；
-- 第二套 Dense Note fixture 覆盖高标题密度、Smart TOC、长 URL 标题、Prompt Card 展开/折叠、Heading 附图、图片-only Block 与 Sheet 离线 fallback，并确保 Long-form Reader 不被这些规则污染；
-- 1920 / 1440 / 1366 / 390 四档视口均不得出现页面级横向溢出；Smart Table 在桌面端适配宽度、390px 下转为记录卡，Dense Note 的长标题/Prompt 同样不得撑宽页面；
+- 第二套 Dense Note fixture 覆盖高标题密度、Smart TOC、长 URL 标题、Prompt Card 展开/折叠、Heading 附图、图片-only Block 与 Sheet fallback；Reader fixture 另覆盖已提取 Sheet 作为普通离线表格渲染，并确保 Long-form Reader 不被这些规则污染；
+- 1920 / 1440 / 1366 / 390 四档视口均不得出现页面级横向溢出；Smart Table 回归覆盖短表自然收宽、长表超宽后 Clamp、长句内含百分号不误判、短编号列不抢宽、合并单元格原生 fallback、Splitter 改宽后重新适配，以及 390px 下全部转为记录卡；Dense Note 的长标题/Prompt 同样不得撑宽页面；
 - TOC 靠左、折叠状态、Splitter 拖动/持久化/双击复位，以及正文随剩余空间流式变化；
-- 大白 Paper 已取消，章节 H2、列表、链接、Smart Table、引用、代码、结构化 Flow/Tier 和媒体组的阅读增强样式可正确应用；学习版的 `hero / split / metrics / flow / compare / cards / takeaway` 语义块也必须正常渲染且不造成页面级横向溢出；
+- 大白 Paper 已取消，章节 H2、列表、链接、Smart Table、引用、代码、结构化 Flow/Tier 和媒体组的阅读增强样式可正确应用；原文深度拆解的 `hero / split / metrics / flow / compare / cards / case / takeaway` 语义块也必须正常渲染且不造成页面级横向溢出；Prompt Case 必须保持单外框结构；
 - 未识别 Block 的文本 fallback。
 
 ## 开发与接手
