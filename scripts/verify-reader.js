@@ -400,6 +400,21 @@ async function main() {
       table: null,
     });
   });
+  [
+    'FastH3 V2 速度观察 58-88秒',
+    'QuantFunc INT8 与 BF16 取舍',
+    'HyperFlow LoRA 兼容性记录',
+    'Refface 远景人脸修复记录',
+  ].forEach((title, index) => {
+    denseBlocks.push({
+      id: `d-commentary-${index + 1}`,
+      className: 'docx-heading1-block',
+      text: title,
+      html: '',
+      media: [],
+      table: null,
+    });
+  });
   denseBlocks.push({
     id: 'd-image',
     className: 'docx-image-block',
@@ -601,10 +616,26 @@ async function main() {
     'item: 记住结构。',
     ':::',
     '',
+    ':::case',
+    'title: Prompt 案例组件',
+    'meta: 15s · 9:16',
+    'tag: 产品广告',
+    'tag: 未配对视频',
+    'body: 验证学习版案例卡可以独立展示案例元信息。',
+    'note: 视频与 Prompt 不做无证据强绑定。',
+    ':::',
+    '',
     markdownFence + 'text',
     '做',
     '↓',
     '测',
+    markdownFence,
+    '',
+    markdownFence + 'text',
+    'integrated_multimodal_description:',
+    ...Array.from({ length: 12 }, (_, index) => `[Shot ${index + 1}] Keep the same subject, scene, action continuity, lighting direction and camera axis while the motion remains physically coherent and easy to verify.`),
+    'overall_soundscape: synchronized environmental detail and restrained physical effects.',
+    'non_diegetic_music: subtle cinematic pulse.',
     markdownFence,
   ].join('\n'), 'utf8');
   fs.writeFileSync(path.join(chaptersRoot, '01-system.md'), [
@@ -657,6 +688,11 @@ async function main() {
     assert.strictEqual(await page.locator('.learning-card').count(), 2);
     assert.strictEqual(await page.locator('.learning-card-meta.is-numeric').count(), 1);
     assert.strictEqual(await page.locator('.learning-takeaway').count(), 1);
+    assert.strictEqual(await page.locator('.learning-case').count(), 1);
+    assert.strictEqual(await page.locator('.learning-case-tag').count(), 2);
+    assert.strictEqual(await page.locator('.reader-prompt-card').count(), 1);
+    assert.strictEqual(await page.locator('.reader-prompt-card.is-collapsed').count(), 1);
+    assert.strictEqual(await page.locator('.reader-prompt-action').count(), 2);
     const learningTypeScale = await page.evaluate(() => ({
       metric: parseFloat(getComputedStyle(document.querySelector('.learning-metric strong')).fontSize),
       flow: parseFloat(getComputedStyle(document.querySelector('.learning-flow-number')).fontSize),
@@ -669,6 +705,10 @@ async function main() {
     assert.ok(learningTypeScale.compareNumeric >= 16);
     assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.strictEqual(await page.locator('[data-theme-toggle]').count(), 1);
+    const learningPromptToggle = page.locator('.reader-prompt-toggle').first();
+    await learningPromptToggle.click();
+    assert.strictEqual(await learningPromptToggle.getAttribute('aria-expanded'), 'true');
+    assert.strictEqual(await page.locator('.reader-prompt-card').first().evaluate(element => element.classList.contains('is-collapsed')), false);
 
     await page.click('[data-theme-toggle]');
     assert.strictEqual(await page.evaluate(() => document.documentElement.getAttribute('data-theme')), 'dark');
@@ -969,6 +1009,10 @@ async function main() {
         majorHeadings: document.querySelectorAll('.reader-heading-major').length,
         noteHeadings: document.querySelectorAll('.reader-heading-note').length,
         longHeadings: document.querySelectorAll('.reader-heading-long').length,
+        commentaryRuns: Number(document.querySelector('.reader-article')?.dataset.commentaryRuns || 0),
+        commentaryItems: document.querySelectorAll('.reader-commentary-item').length,
+        commentaryLabels: document.querySelectorAll('.reader-commentary-label').length,
+        commentaryFont: parseFloat(getComputedStyle(document.querySelector('.reader-commentary-item h2,.reader-commentary-item h3')).fontSize || '0'),
         tocLinks: document.querySelectorAll('.reader-toc-list a').length,
         visibleTocLinks: [...document.querySelectorAll('.reader-toc-list a')].filter(visible).length,
         tocScope: document.querySelector('[data-toc-scope-toggle]')?.textContent || '',
@@ -990,13 +1034,17 @@ async function main() {
     assert.strictEqual(denseDesktop.dense, true);
     assert.strictEqual(denseDesktop.promptHeavy, true);
     assert.strictEqual(denseDesktop.mode, 'dense-note');
-    assert.strictEqual(denseDesktop.headings, 18);
+    assert.strictEqual(denseDesktop.headings, 22);
     assert.ok(denseDesktop.majorHeadings >= 4);
-    assert.ok(denseDesktop.noteHeadings >= 4);
+    assert.ok(denseDesktop.noteHeadings >= 8);
     assert.ok(denseDesktop.longHeadings >= 1);
-    assert.strictEqual(denseDesktop.tocLinks, 18);
+    assert.ok(denseDesktop.commentaryRuns >= 1);
+    assert.ok(denseDesktop.commentaryItems >= 4);
+    assert.strictEqual(denseDesktop.commentaryLabels, 1);
+    assert.ok(denseDesktop.commentaryFont <= 15.5);
+    assert.strictEqual(denseDesktop.tocLinks, 22);
     assert.ok(denseDesktop.visibleTocLinks < denseDesktop.tocLinks);
-    assert.ok(denseDesktop.tocScope.includes('全部 18'));
+    assert.ok(denseDesktop.tocScope.includes('全部 22'));
     assert.strictEqual(denseDesktop.promptCards, 5);
     assert.strictEqual(denseDesktop.collapsedPrompts, 5);
     assert.ok(denseDesktop.promptBodyHeight <= 341);
@@ -1014,7 +1062,7 @@ async function main() {
     const expandedTocCount = await page.evaluate(() =>
       [...document.querySelectorAll('.reader-toc-list a')].filter(link => getComputedStyle(link).display !== 'none').length
     );
-    assert.strictEqual(expandedTocCount, 18);
+    assert.strictEqual(expandedTocCount, 22);
 
     const firstPromptToggle = page.locator('.reader-prompt-toggle').first();
     await firstPromptToggle.click();

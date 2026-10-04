@@ -305,6 +305,68 @@
     block.classList.toggle('is-empty-block', !cleanBlockText(block) && !hasMeaningfulContent);
   });
 
+  if (denseNote && article) {
+    const directBlocks = [...article.querySelectorAll(':scope > .reader-block')];
+    const commentaryRuns = [];
+    let currentRun = [];
+
+    const commentaryCandidate = block => {
+      if (block.classList.contains('is-empty-block')) return 'empty';
+      if (block.classList.contains('reader-block--heading')) {
+        if (block.querySelector('img,video,figure,.reader-heading-media')) return false;
+        const heading = block.querySelector('h2,h3,h4');
+        const role = heading?.dataset.readerHeadingRole || '';
+        const textValue = cleanBlockText(block);
+        if (!textValue || !['note', 'long'].includes(role)) return false;
+        if (role === 'note') return textValue.length <= 220;
+        return textValue.length <= 900;
+      }
+      if (block.classList.contains('reader-block--text')) {
+        if (block.querySelector('img,video,table,figure,.reader-embed-fallback')) return false;
+        const textValue = cleanBlockText(block);
+        return Boolean(textValue && textValue.length <= 220);
+      }
+      return false;
+    };
+
+    const flushCommentaryRun = () => {
+      const items = currentRun.filter(block => !block.classList.contains('is-empty-block'));
+      const headingCount = items.filter(block => block.classList.contains('reader-block--heading')).length;
+      if (items.length >= 4 && headingCount >= 3) commentaryRuns.push(items);
+      currentRun = [];
+    };
+
+    directBlocks.forEach(block => {
+      const candidate = commentaryCandidate(block);
+      if (candidate === 'empty') return;
+      if (candidate) {
+        currentRun.push(block);
+        return;
+      }
+      flushCommentaryRun();
+    });
+    flushCommentaryRun();
+
+    commentaryRuns.forEach((run, runIndex) => {
+      run.forEach((block, index) => {
+        block.classList.add('reader-commentary-item');
+        block.dataset.commentaryPosition =
+          index === 0 ? 'start' : index === run.length - 1 ? 'end' : 'middle';
+        block.dataset.commentaryRun = String(runIndex + 1);
+      });
+
+      if (runIndex === 0) {
+        const label = document.createElement('div');
+        label.className = 'reader-commentary-label';
+        label.innerHTML = '<strong>讲解记录</strong><span>按原始顺序保留的现场式笔记</span>';
+        run[0].before(label);
+      }
+    });
+
+    body.classList.toggle('reader-commentary-note', commentaryRuns.length > 0);
+    if (article) article.dataset.commentaryRuns = String(commentaryRuns.length);
+  }
+
   const mediaBlocks = [...document.querySelectorAll('.reader-block--media')];
   for (const block of mediaBlocks) {
     const items = [...block.querySelectorAll(':scope > .reader-media--standalone')];
@@ -614,7 +676,8 @@
     return copied;
   };
 
-  if (promptHeavy) {
+  if (promptHeavy || body.classList.contains('explain-chapter-reader')) {
+    const explainChapter = body.classList.contains('explain-chapter-reader');
     const promptSignal = /integrated_multimodal_description|subject_definitions|overall_soundscape|non_diegetic_music|retention_analysis|detailed_description|\[Shot\s*\d+\]|<Picture\s*\d+>|<Subject\s*\d+>/i;
 
     document.querySelectorAll('.reader-block--code pre > code').forEach((code, index) => {
@@ -624,7 +687,8 @@
 
       const rawText = code.textContent || '';
       const textValue = rawText.trim();
-      if (textValue.length < 500 && !promptSignal.test(textValue)) return;
+      const minimumLength = explainChapter ? 280 : 500;
+      if (textValue.length < minimumLength && !promptSignal.test(textValue)) return;
 
       const lines = rawText.split(/\r?\n/).length;
       const collapsible = textValue.length >= 900 || lines >= 18;

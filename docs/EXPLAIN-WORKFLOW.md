@@ -219,7 +219,7 @@ A chapter should normally move through the following teaching logic when those p
 Quality gates:
 
 - A chapter should not merely be an easier rewrite of the source report.
-- When the source already has a strong analytical sequence, preserve that sequence so the learner can map the learning version back to the original.
+- When the source already has a strong analytical sequence, preserve that sequence so the learner can map the learning version back to the original. When the source is visibly a live-note/chat-style fragment stream rather than a coherent analytical article, the public learning spine may reorganize it by concept, trade-off and decision path; keep the canonical archive unchanged and distinguish source claims from interpretation.
 - Do not flatten every relationship into vertical prose. Parallel, causal, comparative, statistical, categorical and procedural information should look different.
 - Keep source facts, source/marketing claims, project interpretation and independently verified external facts distinguishable.
 - Evidence supports a teaching point; the existence or order of Evidence Cases must not dictate the chapter outline.
@@ -237,7 +237,8 @@ Public chapter Markdown may use a small controlled directive set when plain Mark
 - `:::metrics` — a small group of headline numbers with labels and notes;
 - `:::flow` — causal, temporal or procedural sequence;
 - `:::compare` — row-based A/B or current/future comparison;
-- `:::cards` — parallel categories, cases, personas, scenes or options;
+- `:::cards` — parallel categories, personas, scenes or options;
+- `:::case` — one reusable case record with title, meta, repeated tags, summary, optional archive-local image/video and an evidence/boundary note;
 - `:::takeaway` — durable summary or boundary that should stand apart from prose.
 
 Use these blocks semantically, not decoratively. A page should not add badges, eyebrow labels, color blocks or oversized headings unless they carry information. Keep the visual hierarchy compact enough for long desktop study sessions. Ordinary prose remains ordinary Markdown.
@@ -246,7 +247,7 @@ Numeric hierarchy is semantic rather than automatic. Enlarge numbers only when t
 
 `:::flow` is a continuous sequence, not a row of unrelated cards. On desktop, 2–5 steps should read as one connected horizontal track with a strong step number, compact title and short explanation. A 6-step flow should split into two connected 3-step tracks rather than six narrow cards. On narrow layouts, flow steps become a vertical timeline. Keep flow copy concise enough that the skeleton is visible at a glance; move deeper explanation outside the flow when necessary.
 
-Directive values use simple `key: value` fields. Repeated fields such as `card:`, `step:`, `metric:`, `row:` and `item:` build repeated visual items. The Viewer sanitizes the resulting HTML; do not use the directive system to inject arbitrary markup or scripts.
+Directive values use simple `key: value` fields. Repeated fields such as `card:`, `step:`, `metric:`, `row:`, `tag:` and `item:` build repeated visual items. `:::case` media paths must resolve to archived `assets/images/sha256-...` or `assets/videos/sha256-...` files; arbitrary external media is not accepted. A video and Prompt must remain separate cases when the source does not explicitly establish their relationship. The Viewer sanitizes the resulting HTML; do not use the directive system to inject arbitrary markup or scripts.
 
 ## Rollout rule
 

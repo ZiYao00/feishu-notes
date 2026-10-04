@@ -75,7 +75,7 @@ function renderInline(value) {
     .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 }
 
-const LEARNING_DIRECTIVES = new Set(['hero', 'split', 'metrics', 'flow', 'compare', 'cards', 'takeaway']);
+const LEARNING_DIRECTIVES = new Set(['hero', 'split', 'metrics', 'flow', 'compare', 'cards', 'case', 'takeaway']);
 
 function parseLearningDirective(lines, startIndex) {
   const open = String(lines[startIndex] || '').trim().match(/^:::([a-z-]+)\s*$/);
@@ -121,6 +121,14 @@ function hasLearningNumber(value) {
 
 function learningValueClass(value, baseClass) {
   return baseClass + (hasLearningNumber(value) ? ' is-numeric' : '');
+}
+
+function safeLearningAsset(value, kind) {
+  const candidate = String(value || '').trim().replace(/\\/g, '/');
+  const pattern = kind === 'video'
+    ? /^assets\/videos\/sha256-[a-f0-9]{64}\.mp4$/i
+    : /^assets\/images\/sha256-[a-f0-9]{64}\.(?:png|jpe?g|webp)$/i;
+  return pattern.test(candidate) ? candidate : '';
 }
 
 function renderFlowSteps(stepValues) {
@@ -217,6 +225,36 @@ function renderLearningDirective(type, fields) {
       '<div class="learning-card-grid">' + cards + '</div></section>';
   }
 
+  if (type === 'case') {
+    const meta = renderInline(firstField(fields, 'meta'));
+    const note = renderInline(firstField(fields, 'note'));
+    const tags = fieldList(fields, 'tag')
+      .map(tag => '<span class="learning-case-tag">' + renderInline(tag) + '</span>')
+      .join('');
+    const video = safeLearningAsset(firstField(fields, 'video'), 'video');
+    const image = safeLearningAsset(firstField(fields, 'image'), 'image');
+    let media = '';
+    if (video) {
+      media = '<figure class="reader-media reader-media--standalone reader-media--video learning-case-media">' +
+        '<video class="reader-video" controls playsinline preload="metadata" src="' + escapeHtml(video) + '"></video></figure>';
+    } else if (image) {
+      media = '<figure class="reader-media reader-media--standalone reader-media--image learning-case-media">' +
+        '<img class="reader-image" src="' + escapeHtml(image) + '" alt="' + escapeHtml(firstField(fields, 'title') || '案例图片') + '"></figure>';
+    }
+
+    return '<section class="learning-block learning-case">' +
+      '<div class="learning-case-head"><div>' +
+      (title ? '<div class="learning-case-title">' + title + '</div>' : '') +
+      (meta ? '<div class="learning-case-meta">' + meta + '</div>' : '') +
+      '</div>' +
+      (tags ? '<div class="learning-case-tags">' + tags + '</div>' : '') +
+      '</div>' +
+      (body ? '<p class="learning-case-summary">' + body + '</p>' : '') +
+      media +
+      (note ? '<div class="learning-case-note">' + note + '</div>' : '') +
+      '</section>';
+  }
+
   const items = fieldList(fields, 'item').map(item => '<li>' + renderInline(item) + '</li>').join('');
   return '<section class="learning-block learning-takeaway">' +
     (title ? '<div class="learning-block-title">' + title + '</div>' : '') +
@@ -289,7 +327,7 @@ function renderMarkdown(markdown) {
       }
       if (index < lines.length) index += 1;
       const language = fence[1] ? ' class="language-' + escapeHtml(fence[1]) + '"' : '';
-      out.push('<pre><code' + language + '>' + escapeHtml(code.join('\n')) + '</code></pre>');
+      out.push('<div class="reader-block reader-block--code"><pre><code' + language + '>' + escapeHtml(code.join('\n')) + '</code></pre></div>');
       continue;
     }
 
@@ -380,11 +418,15 @@ function renderMarkdown(markdown) {
     allowedTags: [
       'article', 'section', 'div', 'span', 'small', 'h1', 'h2', 'h3', 'h4',
       'p', 'blockquote', 'ul', 'ol', 'li', 'strong', 'em',
-      'code', 'pre', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td'
+      'code', 'pre', 'hr', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'figure', 'figcaption', 'video', 'img', 'source'
     ],
     allowedAttributes: {
-      '*': ['class', 'id'],
-      code: ['class']
+      '*': ['class', 'id', 'data-*'],
+      code: ['class'],
+      video: ['class', 'src', 'controls', 'playsinline', 'preload', 'poster', 'width', 'height', 'data-*'],
+      img: ['class', 'src', 'alt', 'width', 'height', 'data-*'],
+      source: ['src', 'type']
     }
   });
 }
