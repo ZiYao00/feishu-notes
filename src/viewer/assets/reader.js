@@ -246,6 +246,15 @@
   const rawCodeBlocks = [...document.querySelectorAll('.reader-block--code pre > code')];
   const longCodeCount = rawCodeBlocks.filter(code => (code.textContent || '').trim().length >= 800).length;
   const headingRatio = articleBlocks.length ? headings.length / articleBlocks.length : 0;
+  const reportTableCount = articleBlocks.filter(block => block.classList.contains('reader-block--table')).length;
+  const reportListCount = articleBlocks.filter(block => block.classList.contains('reader-block--list')).length;
+  const reportTextBlocks = articleBlocks.filter(block => block.classList.contains('reader-block--text'));
+  const reportTextLengths = reportTextBlocks
+    .map(block => (block.textContent || '').replace(/\s+/g, ' ').trim().length)
+    .filter(Boolean);
+  const shortReportTextRatio = reportTextLengths.length
+    ? reportTextLengths.filter(length => length <= 220).length / reportTextLengths.length
+    : 0;
   const promptHeavy =
     rawCodeBlocks.length >= 4 &&
     longCodeCount >= Math.max(3, Math.ceil(rawCodeBlocks.length * 0.35));
@@ -256,11 +265,26 @@
       (headings.length >= 16 && headingRatio >= 0.25) ||
       (promptHeavy && headings.length >= 8)
     );
+  const structuredReport =
+    !explainReader &&
+    !denseNote &&
+    headings.length >= 8 &&
+    (
+      reportTableCount >= 3 ||
+      (
+        headings.length >= 12 &&
+        reportTableCount >= 2 &&
+        reportTableCount + reportListCount >= 6 &&
+        shortReportTextRatio >= 0.5
+      )
+    );
+  const smartTocMode = denseNote || structuredReport;
 
   body.classList.toggle('reader-dense-note', denseNote);
+  body.classList.toggle('reader-structured-report', structuredReport);
   body.classList.toggle('reader-prompt-heavy', promptHeavy);
   if (article) {
-    article.dataset.readerMode = denseNote ? 'dense-note' : 'long-form';
+    article.dataset.readerMode = denseNote ? 'dense-note' : structuredReport ? 'structured-report' : 'long-form';
     article.dataset.promptHeavy = promptHeavy ? '1' : '0';
   }
 
@@ -285,6 +309,12 @@
       heading.dataset.readerHeadingRole = role;
       heading.closest('.reader-block--heading')?.classList.add('reader-heading-' + role);
     });
+  } else if (structuredReport) {
+    headings.forEach(heading => {
+      const role = heading.tagName === 'H2' ? 'major' : 'note';
+      headingRoles.set(heading.id, role);
+      heading.dataset.readerHeadingRole = role;
+    });
   } else {
     headings.forEach(heading => headingRoles.set(heading.id, 'major'));
   }
@@ -302,7 +332,7 @@
       tocList.appendChild(link);
     }
 
-    if (denseNote && headings.length > 12) {
+    if (smartTocMode && headings.length > 12) {
       tocList.classList.add('is-smart-toc', 'is-primary-only');
       const tocHead = toc?.querySelector('.reader-toc-head');
       const tocTitle = tocHead?.querySelector('.reader-toc-title');
@@ -337,7 +367,7 @@
 
       let active = links.get(heading.id) || null;
       if (
-        denseNote &&
+        smartTocMode &&
         tocList.classList.contains('is-primary-only') &&
         !tocList.classList.contains('show-all') &&
         active?.classList.contains('is-toc-secondary')

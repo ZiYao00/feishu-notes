@@ -19,10 +19,13 @@ async function main() {
   const archiveDir = path.join(libraryRoot, folder);
   const denseFolder = 'reader-dense-fixture';
   const denseArchiveDir = path.join(libraryRoot, denseFolder);
+  const reportFolder = 'reader-report-fixture';
+  const reportArchiveDir = path.join(libraryRoot, reportFolder);
 
   if (!keepFixture) fs.rmSync(libraryRoot, { recursive: true, force: true });
   fs.mkdirSync(path.join(archiveDir, 'assets', 'images'), { recursive: true });
   fs.mkdirSync(path.join(denseArchiveDir, 'assets', 'images'), { recursive: true });
+  fs.mkdirSync(reportArchiveDir, { recursive: true });
 
   const tinyPng = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2z9sAAAAASUVORK5CYII=',
@@ -585,6 +588,140 @@ async function main() {
     })),
   }, null, 2), 'utf8');
 
+  const reportBlocks = [];
+  for (let section = 0; section < 4; section += 1) {
+    reportBlocks.push({
+      id: `r-h2-${section + 1}`,
+      className: 'docx-heading1-block',
+      text: `维度 ${section + 1} · 结构化报告章节`,
+      html: '',
+      media: [],
+      table: null,
+    });
+    reportBlocks.push({
+      id: `r-t-${section + 1}`,
+      className: 'docx-text-block',
+      text: '这是一段短正文，用来验证高结构密度报告仍保持连续、克制的阅读节奏。',
+      html: '<div class="docx-text-block">这是一段短正文，用来验证高结构密度报告仍保持连续、克制的阅读节奏。</div>',
+      media: [],
+      table: null,
+    });
+
+    const subsectionCount = section === 3 ? 3 : 2;
+    for (let subsection = 0; subsection < subsectionCount; subsection += 1) {
+      reportBlocks.push({
+        id: `r-h3-${section + 1}-${subsection + 1}`,
+        className: 'docx-heading2-block',
+        text: `${section + 1}.${subsection + 1} 报告小节`,
+        html: '',
+        media: [],
+        table: null,
+      });
+      reportBlocks.push({
+        id: `r-st-${section + 1}-${subsection + 1}`,
+        className: 'docx-text-block',
+        text: '短段落承接结论、数据与表格，避免每个信息块都成为新的视觉卡片。',
+        html: '<div class="docx-text-block">短段落承接结论、数据与表格，避免每个信息块都成为新的视觉卡片。</div>',
+        media: [],
+        table: null,
+      });
+    }
+  }
+
+  [
+    {
+      id: 'r-table-1',
+      rows: [
+        ['阶段', '判断依据', '占比'],
+        ['测试', '通过短周期验证素材方向是否值得继续', '42%'],
+        ['放大', '将已验证方向复制到更多素材组合', '58%'],
+      ],
+    },
+    {
+      id: 'r-table-2',
+      rows: [
+        ['编号', '类型', '核心创作思路', '转化引导'],
+        ['F1', '手部操作', '用真实动作与短口播快速建立使用可信度，并把证据顺序压缩到可扫读的结构中。', '进入直播间'],
+        ['F2', '纯字幕', '保持产品动作不变，只替换前几秒钩子与利益点，便于横向比较。', '查看活动'],
+      ],
+    },
+    {
+      id: 'r-table-3',
+      rows: [
+        ['指标', '结果', '状态'],
+        ['点击率', '12.4%', '高'],
+        ['转化率', '4.8%', '中'],
+      ],
+    },
+  ].forEach(spec => {
+    reportBlocks.push({
+      id: spec.id,
+      className: 'docx-table-block',
+      text: '',
+      html: '',
+      media: [],
+      table: spec.rows.map((row, rowIndex) =>
+        row.map(value => ({
+          tag: rowIndex === 0 ? 'th' : 'td',
+          text: value,
+          isHeader: rowIndex === 0,
+          colspan: 1,
+          rowspan: 1,
+          media: [],
+        }))
+      ),
+    });
+  });
+
+  reportBlocks.push({
+    id: 'r-flow',
+    className: 'docx-code-block',
+    text: [
+      '- 报告转化五步链',
+      '  - ① 发现问题',
+      '    - 明确场景',
+      '  - ② 命名问题',
+      '    - 降低理解成本',
+      '  - ③ 给出证据',
+      '    - 数据与案例',
+      '  - ④ 收束判断',
+      '    - 形成结论',
+      '  - ⑤ 指向行动',
+      '    - 给出下一步',
+    ].join('\n'),
+    html: '',
+    media: [],
+    table: null,
+  });
+
+  const reportDocument = {
+    documentId: 'report-fixture',
+    title: 'Structured Report Reading Fixture',
+    sourceUrl: '',
+    blocks: reportBlocks,
+  };
+  const reportRendered = renderDocument({ document: reportDocument, inventory: [] });
+  fs.writeFileSync(path.join(reportArchiveDir, 'article.html'), reportRendered.html, 'utf8');
+  fs.writeFileSync(path.join(reportArchiveDir, 'fixture.md'), reportRendered.markdown, 'utf8');
+  fs.writeFileSync(path.join(reportArchiveDir, 'archive.json'), JSON.stringify({
+    version: 2,
+    documentId: reportDocument.documentId,
+    title: reportDocument.title,
+    sourceUrl: '',
+    savedAt: fixtureSavedAt,
+    status: 'complete',
+    markdownFile: 'fixture.md',
+    htmlFile: 'article.html',
+    storage: {
+      logicalMediaCount: 0,
+      physicalAssetCount: 0,
+      logicalBytes: 0,
+      physicalBytes: 0,
+      deduplicatedBytes: 0,
+    },
+    media: [],
+  }, null, 2), 'utf8');
+
   const explainRoot = path.join(archiveDir, 'explain');
   fs.mkdirSync(path.join(explainRoot, 'lessons'), { recursive: true });
   fs.mkdirSync(path.join(explainRoot, 'evidence', 'asr'), { recursive: true });
@@ -770,7 +907,7 @@ async function main() {
     const homeResponse = await page.goto(homeUrl, { waitUntil: 'networkidle' });
     assert.strictEqual(homeResponse.status(), 200);
     assert.strictEqual(await page.locator('a.btn-primary').count(), 1);
-    assert.strictEqual(await page.locator('a.btn-secondary').count(), 2);
+    assert.strictEqual(await page.locator('a.btn-secondary').count(), 3);
 
     assert.strictEqual((await page.locator('a.btn-primary').first().innerText()).includes('进入深度拆解'), true);
     assert.strictEqual((await page.locator('a.btn-secondary').first().innerText()).includes('查看原始文章'), true);
@@ -1301,6 +1438,127 @@ async function main() {
     }
 
     await page.setViewportSize({ width: 1920, height: 1080 });
+    const reportUrl = `http://127.0.0.1:${port}/note/${encodeURIComponent(reportFolder)}/`;
+    const reportResponse = await page.goto(reportUrl, { waitUntil: 'networkidle' });
+    assert.strictEqual(reportResponse.status(), 200);
+    await page.waitForTimeout(120);
+
+    const reportDesktop = await page.evaluate(() => {
+      const visible = element => getComputedStyle(element).display !== 'none';
+      const articleStyle = getComputedStyle(document.querySelector('.reader-article'));
+      const titleStyle = getComputedStyle(document.querySelector('.reader-article-title'));
+      const h2 = document.querySelector('.reader-block--heading h2');
+      const h3 = document.querySelector('.reader-block--heading h3');
+      const tableWrap = document.querySelector('.reader-table-wrap');
+      const percentCell = document.querySelector('.reader-percent-cell');
+      const flowTrack = document.querySelector('.reader-structured-flow-track');
+      const flowNumber = document.querySelector('.reader-structured-flow-number');
+      const bodyStyle = getComputedStyle(document.body);
+      return {
+        structuredReport: document.body.classList.contains('reader-structured-report'),
+        dense: document.body.classList.contains('reader-dense-note'),
+        mode: document.querySelector('.reader-article')?.dataset.readerMode || '',
+        headings: document.querySelectorAll('.reader-block--heading h2[id],.reader-block--heading h3[id]').length,
+        tocLinks: document.querySelectorAll('.reader-toc-list a').length,
+        visibleTocLinks: [...document.querySelectorAll('.reader-toc-list a')].filter(visible).length,
+        primaryTocLinks: document.querySelectorAll('.reader-toc-list .is-toc-primary').length,
+        secondaryTocLinks: document.querySelectorAll('.reader-toc-list .is-toc-secondary').length,
+        tocScope: document.querySelector('[data-toc-scope-toggle]')?.textContent || '',
+        structuredFlowSteps: document.querySelectorAll('.reader-structured-flow-step').length,
+        articleFont: parseFloat(articleStyle.fontSize),
+        titleFont: parseFloat(titleStyle.fontSize),
+        h2Font: parseFloat(getComputedStyle(h2).fontSize),
+        h3Font: parseFloat(getComputedStyle(h3).fontSize),
+        h2AccentDisplay: getComputedStyle(h2, '::after').display,
+        tableShadow: getComputedStyle(tableWrap).boxShadow,
+        tableRadius: getComputedStyle(tableWrap).borderRadius,
+        percentBackgroundImage: percentCell ? getComputedStyle(percentCell).backgroundImage : '',
+        flowShadow: flowTrack ? getComputedStyle(flowTrack).boxShadow : '',
+        flowNumberFont: flowNumber ? parseFloat(getComputedStyle(flowNumber).fontSize) : 0,
+        bodyBackgroundImage: bodyStyle.backgroundImage,
+        pageOverflow: document.documentElement.scrollWidth > innerWidth,
+      };
+    });
+
+    assert.strictEqual(reportDesktop.structuredReport, true);
+    assert.strictEqual(reportDesktop.dense, false);
+    assert.strictEqual(reportDesktop.mode, 'structured-report');
+    assert.strictEqual(reportDesktop.headings, 13);
+    assert.strictEqual(reportDesktop.tocLinks, 13);
+    assert.strictEqual(reportDesktop.primaryTocLinks, 4);
+    assert.strictEqual(reportDesktop.secondaryTocLinks, 9);
+    assert.strictEqual(reportDesktop.visibleTocLinks, 4);
+    assert.ok(reportDesktop.tocScope.includes('全部 13'));
+    assert.strictEqual(reportDesktop.structuredFlowSteps, 5);
+    assert.strictEqual(reportDesktop.articleFont, 16);
+    assert.ok(reportDesktop.titleFont <= 38);
+    assert.strictEqual(reportDesktop.h2Font, 24);
+    assert.strictEqual(reportDesktop.h3Font, 19);
+    assert.strictEqual(reportDesktop.h2AccentDisplay, 'none');
+    assert.strictEqual(reportDesktop.tableShadow, 'none');
+    assert.strictEqual(reportDesktop.tableRadius, '8px');
+    assert.strictEqual(reportDesktop.percentBackgroundImage, 'none');
+    assert.strictEqual(reportDesktop.flowShadow, 'none');
+    assert.strictEqual(reportDesktop.flowNumberFont, 22);
+    assert.strictEqual(reportDesktop.bodyBackgroundImage, 'none');
+    assert.strictEqual(reportDesktop.pageOverflow, false);
+
+    await page.evaluate(() => {
+      const target = document.getElementById('block-r-h3-2-1');
+      const topbar = document.querySelector('.reader-topbar')?.getBoundingClientRect().height || 0;
+      if (target) {
+        const top = Math.max(0, scrollY + target.getBoundingClientRect().top - topbar - 10);
+        scrollTo({ top, behavior: 'auto' });
+      }
+    });
+    await page.waitForFunction(() =>
+      document.querySelector('.reader-toc-list a.active')?.getAttribute('href')?.endsWith('#block-r-h2-2')
+    );
+
+    await page.click('[data-toc-scope-toggle]');
+    const expandedReportTocCount = await page.evaluate(() =>
+      [...document.querySelectorAll('.reader-toc-list a')].filter(link => getComputedStyle(link).display !== 'none').length
+    );
+    assert.strictEqual(expandedReportTocCount, 13);
+
+    await page.click('[data-theme-toggle]');
+    const reportDark = await page.evaluate(() => ({
+      theme: document.documentElement.getAttribute('data-theme'),
+      background: getComputedStyle(document.body).backgroundColor,
+    }));
+    assert.strictEqual(reportDark.theme, 'dark');
+    assert.notStrictEqual(reportDark.background, 'rgb(255, 255, 255)');
+    assert.notStrictEqual(reportDark.background, 'rgba(0, 0, 0, 0)');
+    await page.click('[data-theme-toggle]');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(reportUrl, { waitUntil: 'networkidle' });
+    const reportMobile = await page.evaluate(() => {
+      const firstCard = document.querySelector('.reader-smart-table tbody>tr:not(.reader-table-head-row)');
+      const wrap = document.querySelector('.reader-table-wrap');
+      const h2 = document.querySelector('.reader-block--heading h2');
+      const flowStep = document.querySelector('.reader-structured-flow-step');
+      return {
+        mode: document.querySelector('.reader-article')?.dataset.readerMode || '',
+        pageOverflow: document.documentElement.scrollWidth > innerWidth,
+        tableCardMode: firstCard ? getComputedStyle(firstCard).display === 'block' : false,
+        tableWrapBorder: wrap ? getComputedStyle(wrap).borderTopWidth : '',
+        cardShadow: firstCard ? getComputedStyle(firstCard).boxShadow : '',
+        h2Font: h2 ? parseFloat(getComputedStyle(h2).fontSize) : 0,
+        flowBorderRight: flowStep ? getComputedStyle(flowStep).borderRightWidth : '',
+        flowBorderBottom: flowStep ? getComputedStyle(flowStep).borderBottomWidth : '',
+      };
+    });
+    assert.strictEqual(reportMobile.mode, 'structured-report');
+    assert.strictEqual(reportMobile.pageOverflow, false);
+    assert.strictEqual(reportMobile.tableCardMode, true);
+    assert.strictEqual(reportMobile.tableWrapBorder, '0px');
+    assert.strictEqual(reportMobile.cardShadow, 'none');
+    assert.strictEqual(reportMobile.h2Font, 22);
+    assert.strictEqual(reportMobile.flowBorderRight, '0px');
+    assert.strictEqual(reportMobile.flowBorderBottom, '1px');
+
+    await page.setViewportSize({ width: 1920, height: 1080 });
     const denseUrl = `http://127.0.0.1:${port}/note/${encodeURIComponent(denseFolder)}/`;
     const denseResponse = await page.goto(denseUrl, { waitUntil: 'networkidle' });
     assert.strictEqual(denseResponse.status(), 200);
@@ -1394,7 +1652,7 @@ async function main() {
     assert.ok(denseMobile.visibleImages >= 2);
     assert.strictEqual(denseMobile.sheetFallbackVisible, true);
 
-    console.log(JSON.stringify({ ok: true, desktop1920, collapsed, imageDialog, responsive, denseDesktop, denseMobile }, null, 2));
+    console.log(JSON.stringify({ ok: true, desktop1920, collapsed, imageDialog, responsive, reportDesktop, reportDark, reportMobile, denseDesktop, denseMobile }, null, 2));
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));
