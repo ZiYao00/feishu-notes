@@ -8,7 +8,17 @@
 
 ## 第一次使用（Windows x64 便携包）
 
+下载入口：[v0.1.0 Windows x64 预发布](https://github.com/ZiYao00/feishu-notes/releases/tag/v0.1.0)。在 **Assets** 中选择 `feishu-notes-0.1.0-windows-x64.zip`，同时下载 `SHA256SUMS.txt` 用于校验。GitHub 自动生成的 `Source code (zip)` / `Source code (tar.gz)` 仅含源码，不包含 Node 和依赖。
+
+当前仓库为私有仓库，下载需要登录具有仓库访问权限的 GitHub 账号。本次为预发布：已完成 Windows 10 x64 主机上的独立安装、便携包、离线播放与迁移验证，真实新电脑/干净 Windows 系统及全新 Profile 首次飞书登录/抓取仍待验收。
+
 便携 ZIP 包含 Node.js 运行时及锁定的 npm 依赖，无需安装 Node.js、npm 或 Git。包内没有文章、飞书账号、登录状态或本机配置。源码仓库本身不包含运行时和依赖，不能将源码 ZIP 当作便携包。
+
+解压前可在 ZIP 下载目录执行以下命令，将输出的 Hash 与 `SHA256SUMS.txt` 中的值比较，忽略字母大小写：
+
+```powershell
+Get-FileHash .\feishu-notes-0.1.0-windows-x64.zip -Algorithm SHA256
+```
 
 1. 将完整便携 ZIP 解压到自己有写入权限的目录，不在压缩包内直接运行。路径可包含中文和空格；不要放在需要管理员写入权限的系统目录。
 2. 双击 `service.bat`，选择菜单 5，或在该目录 PowerShell 执行 `.\service.bat start-open`。服务启动后打开 `http://127.0.0.1:4173/`。新安装显示空资料库是正常现象。
@@ -42,6 +52,7 @@ npm.cmd ci
 
 | 现象 | 处理方式 |
 | --- | --- |
+| Release 页面/附件无法访问 | 登录有仓库访问权限的 GitHub 账号；仓库当前为私有仓库 |
 | 便携包缺少 `runtime/node.exe` 或依赖 | 重新解压完整便携 ZIP 到新目录；不要只复制 BAT 或源码。源码安装则安装 Node.js 24 LTS，再运行 `npm.cmd ci` |
 | Viewer 无法启动 | 查看终端提示及 `data/logs/viewer.log.err`；确认目录可写、ZIP 完整 |
 | npm 网络下载失败（源码安装） | 检查到 npm registry 的访问，保留锁文件并重试 |
@@ -363,6 +374,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-portab
 
 脚本只从指定本地提交导出白名单源码，在独立目录按锁文件安装依赖，校验 Node 与依赖，并在 `dist/build-*/` 生成 ZIP、哈希及构建清单。构建需要 Git 和联网访问 npm registry，使用 Node ZIP 自带的 npm，不安装全局软件。构建不执行依赖安装脚本；依赖出现安装脚本时会中止要求重新审查。构建工作目录和缓存保留，不自动清理。
 
-制品内 `BUILD-MANIFEST.json` 记录源码提交、Node 版本、输入 ZIP 校验值和逐文件哈希；`THIRD-PARTY-NOTICES.md` 列出依赖及许可文件。用户下载/解压后不再需要 npm registry。正式 Release 前必须按项目手册第 14 节验收实际候选 ZIP。
+制品内 `BUILD-MANIFEST.json` 记录源码提交、Node 版本、输入 ZIP 校验值和逐文件哈希；`THIRD-PARTY-NOTICES.md` 列出依赖及许可文件。用户下载/解压后不再需要 npm registry。稳定版发布前必须按项目手册第 14 节完成目标环境验收；预发布也必须核验实际 ZIP，并明确尚未完成的验收项。
 
-当前项目代码**暂不授予开源许可**，`package.json` 标记 `UNLICENSED`；不提供 MIT/Apache 等项目源码授权。Node 与第三方依赖继续适用各自许可，原始许可和 NOTICE 随便携包保留。当前没有配置 Git remote，本地候选包不等于已发布 Release。
+当前项目代码**暂不授予开源许可**，`package.json` 标记 `UNLICENSED`；不提供 MIT/Apache 等项目源码授权。Node 与第三方依赖继续适用各自许可，原始许可和 NOTICE 随便携包保留。源码仓库与预发布附件位于 [ZiYao00/feishu-notes](https://github.com/ZiYao00/feishu-notes)。Release 附件只包含经核验的便携包与校验文件，用户数据不随发布交付。

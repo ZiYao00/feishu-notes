@@ -480,9 +480,9 @@ Feishu = 采集来源，不是离线阅读依赖
 
 ### 已确定的交付与许可
 
-本轮用户决定首发采用 **包含 Node 的 Windows x64 便携 ZIP**，用户无需安装 Node/npm。采集需要用户自行安装 Chrome，离线 Viewer 不依赖 Chrome 或飞书登录。项目版本沿用 `package.json` 的 0.1.0，不自动创建 Tag 或发布。
+本轮用户决定首发采用 **包含 Node 的 Windows x64 便携 ZIP**，用户无需安装 Node/npm。采集需要用户自行安装 Chrome，离线 Viewer 不依赖 Chrome 或飞书登录。应用版本沿用 `package.json` 的 0.1.0。用户本次已授权创建 `v0.1.0` 预发布并上传便携 ZIP；稳定版发布仍需完成目标环境验收。
 
-项目源码暂不授予开源许可，标记 `UNLICENSED`，不生成未经授权的 MIT/Apache LICENSE。Node 和依赖的许可、NOTICE 必须随制品保留。当前没有 Git remote；不猜测仓库、不自动创建远程或推送。正式支持的 Windows 版本只能来自目标环境验收；当前证据来自 Windows 10 x64，不能承诺未经验证的 Windows 11/ARM64。
+项目源码暂不授予开源许可，标记 `UNLICENSED`，不生成未经授权的 MIT/Apache LICENSE。Node 和依赖的许可、NOTICE 必须随制品保留。已配置 `origin` 为 `https://github.com/ZiYao00/feishu-notes.git`，`master` 跟踪 `origin/master`；仓库保持私有，不自行改变可见性。正式支持的 Windows 版本只能来自目标环境验收；当前证据来自 Windows 10 x64，不能承诺未经验证的 Windows 11/ARM64。
 
 ### 制品与私有数据边界
 
@@ -491,7 +491,7 @@ Feishu = 采集来源，不是离线阅读依赖
 - 便携包包含源码/默认配置/示例配置/文档、Node executable/LICENSE、完整锁定依赖与其许可、空数据目录占位、`BUILD-MANIFEST.json`、`THIRD-PARTY-NOTICES.md`。不附带 npm、Chrome、Node 的系统安装辅助脚本。
 - 排除 `.git/`、真实 `library/` 文章、Profile、Secrets、本机配置、日志、缓存、样式覆盖、临时验证数据与 `data/backups/`。`node_modules/` 和 `runtime/` 仅在经过独立安装与检查的便携制品中纳入，源码仓库仍忽略。
 - 记录制品 SHA-256、来源提交、Node 版本及逐文件清单，检查 ZIP 路径与内容。检查已提交源码中的真实私有文档 URL、常见凭证、用户机器路径和业务材料；声称 Git 历史可公开前另审历史。
-- 构建仅准备本地候选包，不授权上传、创建远程仓库、打 Tag 或发布 Release。
+- 构建脚本本身只准备本地候选包。用户本次已授权推送、创建 Release 与上传附件；具体发布必须指向源码提交、使用已核验制品，并保留预发布标记与验收边界。
 
 ### 新用户、新电脑的必过路径
 
@@ -524,4 +524,13 @@ Reader 自动回归按 `AGENTS.md` 执行，设置 `FEISHU_NOTES_VERIFY_KEEP_FIX
 
 详细日志、独立安装报告、ZIP 检查与实际播放/迁移结果留在 Git 忽略的 `data/tmp/release-fixes-20261008/`，汇总入口为其中的 `REPORT.md`；前次审查记录与未完成的测试尝试保留。构建制品及哈希位于 `dist/build-*/`，源码提交与逐文件哈希由各包 BUILD-MANIFEST 记录。正式候选的文档更新后再构建时，应核对非文档文件与已验收包一致；有运行代码变化则重跑受影响验收。
 
-**正式 Release 仍为 NOT READY**：新电脑/干净 Windows 系统、全新 Profile 首次登录与真实飞书抓取/权限/媒体确认尚无通过记录。当前未找到可直接使用的 Windows Sandbox/虚拟机入口，用户尚未提供目标测试电脑与测试文档。交付形式、许可选择与“当前没有 remote”已明确；remote 未配置是发布目标待定，不是本地功能缺陷。完成所有独立准备后，需目标环境验收及明确的发布指令才能正式发布。
+**稳定版发布仍为 NOT READY**：新电脑/干净 Windows 系统、全新 Profile 首次登录与真实飞书抓取/权限/媒体确认尚无通过记录。当前未找到可直接使用的 Windows Sandbox/虚拟机入口，用户尚未提供目标测试电脑与测试文档。这些缺口不得用本机隔离测试替代，也不得在 Release 中省略。
+
+### v0.1.0 预发布交付
+
+发布目标为 [v0.1.0 Windows x64 便携版](https://github.com/ZiYao00/feishu-notes/releases/tag/v0.1.0)，使用 GitHub prerelease 标记，不标为稳定版 Latest。仓库为私有仓库，下载者需要访问权限。
+
+- README 提供版本固定的 Release 入口、Assets 文件选择、SHA-256 校验、解压/启动/首次登录步骤，并区分 GitHub 自动源码归档与包含 Node 的便携 ZIP。
+- 文档更新先本地提交，推送后从该提交重新构建；非文档文件逐项与已验收包比对，运行代码/配置/依赖/运行时/许可发生变化时重新验收。
+- 附件为 `feishu-notes-0.1.0-windows-x64.zip` 与 `SHA256SUMS.txt`；ZIP 内记录 BUILD-MANIFEST 和 THIRD-PARTY-NOTICES。发布说明记录完整源码提交、Node 版本、包哈希、Windows/Chrome 条件、已知未完成验收、升级和回退。
+- 先准备草稿与附件，下载远端附件核对哈希后再发布为预发布；最终核对 Release 不是 draft、仍为 prerelease，Tag 指向实际构建提交。发布回执与下载验证留在 Git 忽略的 `data/tmp/`，不将本机路径或私有材料写入公开说明。
