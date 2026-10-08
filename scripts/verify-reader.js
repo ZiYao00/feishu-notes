@@ -108,6 +108,18 @@ async function main() {
       actualSize: tinyPng.length,
     },
     {
+      id: 'standalone-image-b',
+      url: 'fixture:image-b',
+      kind: 'image',
+      status: 'downloaded',
+      localRelativePath: 'assets/images/sample.png',
+      width: 2400,
+      height: 1600,
+      aspectRatio: 1.5,
+      contexts: ['standalone'],
+      actualSize: tinyPng.length,
+    },
+    {
       id: 'table-portrait',
       url: 'fixture:table-portrait',
       kind: 'video',
@@ -458,7 +470,7 @@ async function main() {
     })),
   }, null, 2), 'utf8');
 
-  const denseInventory = inventory.filter(item => item.url === 'fixture:image');
+  const denseInventory = inventory.filter(item => ['fixture:image', 'fixture:image-b'].includes(item.url));
   const densePrompt = [
     'subject_definitions:',
     '<Subject 1> is the same reference character and must remain visually consistent.',
@@ -529,6 +541,14 @@ async function main() {
     text: '',
     html: '<div class="docx-image-block"><img src="fixture:image" width="2400" height="1600"></div>',
     media: [{ url: 'fixture:image' }],
+    table: null,
+  });
+  denseBlocks.push({
+    id: 'd-image-grid',
+    className: 'docx-image-block',
+    text: '',
+    html: '<div class="docx-image-block"><img src="fixture:image" width="2400" height="1600"><img src="fixture:image-b" width="2400" height="1600"></div>',
+    media: [{ url: 'fixture:image' }, { url: 'fixture:image-b' }],
     table: null,
   });
   denseBlocks.push({
@@ -970,6 +990,21 @@ async function main() {
     assert.strictEqual(embeddedPromptStyle.borderBottom, '0px');
     assert.strictEqual(embeddedPromptStyle.borderRadius, '0px');
     assert.strictEqual(embeddedPromptStyle.boxShadow, 'none');
+    const standaloneExplainPromptStyle = await page.evaluate(() => {
+      const prompt = document.querySelector('.explain-chapter-section > .reader-prompt-card');
+      const body = prompt?.querySelector('.reader-prompt-body');
+      if (!prompt || !body) return null;
+      const style = getComputedStyle(prompt);
+      return {
+        borderRadius: style.borderRadius,
+        boxShadow: style.boxShadow,
+        collapsedBodyHeight: Math.round(body.getBoundingClientRect().height),
+      };
+    });
+    assert.ok(standaloneExplainPromptStyle);
+    assert.strictEqual(standaloneExplainPromptStyle.borderRadius, '14px');
+    assert.notStrictEqual(standaloneExplainPromptStyle.boxShadow, 'none');
+    assert.ok(standaloneExplainPromptStyle.collapsedBodyHeight >= 330);
     const learningTypeScale = await page.evaluate(() => ({
       metric: parseFloat(getComputedStyle(document.querySelector('.learning-metric strong')).fontSize),
       flow: parseFloat(getComputedStyle(document.querySelector('.learning-flow-number')).fontSize),
@@ -1566,10 +1601,16 @@ async function main() {
 
     const denseDesktop = await page.evaluate(() => {
       const visible = element => getComputedStyle(element).display !== 'none';
-      const promptBody = document.querySelector('.reader-prompt-card .reader-prompt-body');
+      const promptCard = document.querySelector('.reader-prompt-card.is-collapsed');
+      const promptBody = promptCard?.querySelector('.reader-prompt-body') || null;
+      const promptMeta = document.querySelector('.reader-prompt-identity span');
+      const promptAction = document.querySelector('.reader-prompt-action');
+      const commentaryMeta = document.querySelector('.reader-commentary-label span');
       const major = document.querySelector('.reader-heading-major h2,.reader-heading-major h3');
       const note = document.querySelector('.reader-heading-note h2,.reader-heading-note h3');
-      const long = document.querySelector('.reader-heading-long h2,.reader-heading-long h3');
+      const long = document.querySelector('.reader-heading-long:not(.reader-commentary-item) h2,.reader-heading-long:not(.reader-commentary-item) h3');
+      const mediaGrid = document.querySelector('.reader-block--media.is-media-grid');
+      const mediaImage = mediaGrid?.querySelector('.reader-image,.reader-video') || null;
       return {
         dense: document.body.classList.contains('reader-dense-note'),
         promptHeavy: document.body.classList.contains('reader-prompt-heavy'),
@@ -1589,13 +1630,27 @@ async function main() {
         collapsedPrompts: document.querySelectorAll('.reader-prompt-card.is-collapsed').length,
         promptBodyHeight: promptBody ? Math.round(promptBody.getBoundingClientRect().height) : 0,
         promptBodyScrollHeight: promptBody?.scrollHeight || 0,
+        promptCardShadow: promptCard ? getComputedStyle(promptCard).boxShadow : '',
+        promptCardRadius: promptCard ? getComputedStyle(promptCard).borderRadius : '',
+        promptFadeHeight: promptCard ? parseFloat(getComputedStyle(promptCard, '::after').height) : 0,
+        promptMetaColor: promptMeta ? getComputedStyle(promptMeta).color : '',
+        promptActionColor: promptAction ? getComputedStyle(promptAction).color : '',
+        commentaryMetaColor: commentaryMeta ? getComputedStyle(commentaryMeta).color : '',
         headingMedia: document.querySelectorAll('.reader-heading-media .reader-media--image').length,
         visibleImages: [...document.querySelectorAll('.reader-content img[data-reader-zoomable]')].filter(image => image.getBoundingClientRect().width > 0).length,
+        mediaGridCount: document.querySelectorAll('.reader-block--media.is-media-grid').length,
+        mediaGridPadding: mediaGrid ? getComputedStyle(mediaGrid).padding : '',
+        mediaGridBorder: mediaGrid ? getComputedStyle(mediaGrid).borderTopWidth : '',
+        mediaGridBackground: mediaGrid ? getComputedStyle(mediaGrid).backgroundImage : '',
+        mediaImageShadow: mediaImage ? getComputedStyle(mediaImage).boxShadow : '',
         sheetFallback: document.querySelectorAll('.reader-sheet-fallback').length,
         sheetFallbackVisible: Boolean(document.querySelector('.reader-sheet-fallback')?.getBoundingClientRect().width),
         majorFont: major ? parseFloat(getComputedStyle(major).fontSize) : 0,
+        majorAccentDisplay: major ? getComputedStyle(major, '::after').display : '',
         noteFont: note ? parseFloat(getComputedStyle(note).fontSize) : 0,
         longFont: long ? parseFloat(getComputedStyle(long).fontSize) : 0,
+        longBackground: long ? getComputedStyle(long).backgroundColor : '',
+        longRadius: long ? getComputedStyle(long).borderRadius : '',
         pageOverflow: document.documentElement.scrollWidth > innerWidth,
       };
     });
@@ -1616,15 +1671,28 @@ async function main() {
     assert.ok(denseDesktop.tocScope.includes('全部 22'));
     assert.strictEqual(denseDesktop.promptCards, 5);
     assert.strictEqual(denseDesktop.collapsedPrompts, 5);
-    assert.ok(denseDesktop.promptBodyHeight <= 341);
+    assert.ok(denseDesktop.promptBodyHeight >= 219 && denseDesktop.promptBodyHeight <= 221);
     assert.ok(denseDesktop.promptBodyScrollHeight > denseDesktop.promptBodyHeight);
+    assert.strictEqual(denseDesktop.promptCardShadow, 'none');
+    assert.strictEqual(denseDesktop.promptCardRadius, '10px');
+    assert.ok(denseDesktop.promptFadeHeight >= 35 && denseDesktop.promptFadeHeight <= 37);
+    assert.strictEqual(denseDesktop.promptMetaColor, denseDesktop.promptActionColor);
+    assert.strictEqual(denseDesktop.commentaryMetaColor, denseDesktop.promptActionColor);
     assert.strictEqual(denseDesktop.headingMedia, 1);
-    assert.ok(denseDesktop.visibleImages >= 2);
+    assert.ok(denseDesktop.visibleImages >= 4);
+    assert.ok(denseDesktop.mediaGridCount >= 1);
+    assert.strictEqual(denseDesktop.mediaGridPadding, '0px');
+    assert.strictEqual(denseDesktop.mediaGridBorder, '0px');
+    assert.strictEqual(denseDesktop.mediaGridBackground, 'none');
+    assert.strictEqual(denseDesktop.mediaImageShadow, 'none');
     assert.strictEqual(denseDesktop.sheetFallback, 1);
     assert.strictEqual(denseDesktop.sheetFallbackVisible, true);
     assert.ok(denseDesktop.majorFont <= 24);
+    assert.strictEqual(denseDesktop.majorAccentDisplay, 'none');
     assert.ok(denseDesktop.noteFont <= 18);
     assert.ok(denseDesktop.longFont <= 16.5);
+    assert.ok(denseDesktop.longBackground.includes('0, 0, 0, 0'));
+    assert.strictEqual(denseDesktop.longRadius, '0px');
     assert.strictEqual(denseDesktop.pageOverflow, false);
 
     await page.click('[data-toc-scope-toggle]');
@@ -1633,6 +1701,23 @@ async function main() {
     );
     assert.strictEqual(expandedTocCount, 22);
 
+    await page.click('[data-theme-toggle]');
+    const denseDark = await page.evaluate(() => {
+      const prompt = document.querySelector('.reader-prompt-card');
+      const body = getComputedStyle(document.body);
+      const promptStyle = prompt ? getComputedStyle(prompt) : null;
+      return {
+        theme: document.documentElement.getAttribute('data-theme'),
+        bodyBackground: body.backgroundColor,
+        promptBackground: promptStyle?.backgroundColor || '',
+        promptBorder: promptStyle?.borderTopColor || '',
+      };
+    });
+    assert.strictEqual(denseDark.theme, 'dark');
+    assert.notStrictEqual(denseDark.promptBackground, denseDark.bodyBackground);
+    assert.notStrictEqual(denseDark.promptBorder, 'rgba(0, 0, 0, 0)');
+    await page.click('[data-theme-toggle]');
+
     const firstPromptToggle = page.locator('.reader-prompt-toggle').first();
     await firstPromptToggle.click();
     assert.strictEqual(await firstPromptToggle.getAttribute('aria-expanded'), 'true');
@@ -1640,19 +1725,27 @@ async function main() {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(denseUrl, { waitUntil: 'networkidle' });
-    const denseMobile = await page.evaluate(() => ({
-      pageOverflow: document.documentElement.scrollWidth > innerWidth,
-      docWidth: document.documentElement.scrollWidth,
-      width: innerWidth,
-      visibleImages: [...document.querySelectorAll('.reader-content img[data-reader-zoomable]')].filter(image => image.getBoundingClientRect().width > 0).length,
-      sheetFallbackVisible: Boolean(document.querySelector('.reader-sheet-fallback')?.getBoundingClientRect().width),
-    }));
+    const denseMobile = await page.evaluate(() => {
+      const action = document.querySelector('.reader-prompt-action');
+      const body = document.querySelector('.reader-prompt-card.is-collapsed .reader-prompt-body');
+      return {
+        pageOverflow: document.documentElement.scrollWidth > innerWidth,
+        docWidth: document.documentElement.scrollWidth,
+        width: innerWidth,
+        visibleImages: [...document.querySelectorAll('.reader-content img[data-reader-zoomable]')].filter(image => image.getBoundingClientRect().width > 0).length,
+        sheetFallbackVisible: Boolean(document.querySelector('.reader-sheet-fallback')?.getBoundingClientRect().width),
+        promptActionHeight: action ? Math.round(action.getBoundingClientRect().height) : 0,
+        promptBodyHeight: body ? Math.round(body.getBoundingClientRect().height) : 0,
+      };
+    });
     assert.strictEqual(denseMobile.pageOverflow, false);
     assert.strictEqual(denseMobile.docWidth, denseMobile.width);
-    assert.ok(denseMobile.visibleImages >= 2);
+    assert.ok(denseMobile.visibleImages >= 4);
     assert.strictEqual(denseMobile.sheetFallbackVisible, true);
+    assert.ok(denseMobile.promptActionHeight >= 40);
+    assert.ok(denseMobile.promptBodyHeight >= 219 && denseMobile.promptBodyHeight <= 221);
 
-    console.log(JSON.stringify({ ok: true, desktop1920, collapsed, imageDialog, responsive, reportDesktop, reportDark, reportMobile, denseDesktop, denseMobile }, null, 2));
+    console.log(JSON.stringify({ ok: true, desktop1920, collapsed, imageDialog, responsive, reportDesktop, reportDark, reportMobile, denseDesktop, denseDark, denseMobile }, null, 2));
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

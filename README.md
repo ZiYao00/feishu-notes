@@ -276,9 +276,10 @@ npm run verify:reader
 - 透明 Media Dialog、视频点击后自动播放、Esc/空白区域关闭与焦点返回；
 - 原始文章中的结构化伪代码可自动识别为 Flow / Tier；重复标题继续使用稳定 Block Anchor；
 - 三模式 fixture 分别锁定 Long-form / Structured Report / Dense Note：Structured Report 专项覆盖通用结构判定、Dense Note 优先级、H2 primary + H3/H4 secondary Smart TOC、精简/全部切换与 secondary ScrollSpy 回退；Dense Note 专项继续覆盖高标题密度、长 URL、Prompt Card、Heading 附图、图片-only Block 与 Sheet fallback；
-- 1920 / 1440 / 1366 / 390 四档视口均不得出现页面级横向溢出；Smart Table 回归覆盖短表自然收宽、长表超宽后 Clamp、长句内含百分号不误判、短编号列不抢宽、合并单元格原生 fallback、Splitter 改宽后重新适配，以及 390px 下全部转为记录卡；Structured Report 还要验证低噪声桌面表格、移动端记录卡、纵向 Flow 和暗色模式，Dense Note 的长标题/Prompt 同样不得撑宽页面；
+- 1920 / 1440 / 1366 / 390 四档视口均不得出现页面级横向溢出；Smart Table 回归覆盖短表自然收宽、长表超宽后 Clamp、长句内含百分号不误判、短编号列不抢宽、合并单元格原生 fallback、Splitter 改宽后重新适配，以及 390px 下全部转为记录卡；Structured Report 还要验证低噪声桌面表格、移动端记录卡、纵向 Flow 和暗色模式；
+- Dense Note 回归另外锁定 Quiet Pass：折叠 Prompt 保持约 220px 预览、无装饰性阴影、Major 不重复使用短强调线、Long Note 与 Media Grid 保持轻量 Surface、Meta 使用可读对比度，390px Prompt 操作按钮保持约 40px 触控高度，并验证暗色模式及 Explain Prompt 样式不受 Dense Note 局部覆盖影响；
 - TOC 靠左、折叠状态、Splitter 拖动/持久化/双击复位，以及正文随剩余空间流式变化；
-- 大白 Paper 已取消；Long-form 保持既有 Reading Enhancement，Structured Report 使用低噪声 Reading Visual Grammar，Dense Note 保持知识点/Prompt 专项表达；原文深度拆解的 `hero / split / metrics / flow / compare / cards / case / takeaway` 语义块也必须正常渲染且不造成页面级横向溢出；Prompt Case 必须保持单外框结构；
+- 大白 Paper 已取消；Long-form 保持既有 Reading Enhancement，Structured Report 与 Dense Note 都遵循低视觉噪声 Reading Visual Grammar，但 Dense Note 继续保留知识点 / Prompt / Commentary 的功能语义；原文深度拆解的 `hero / split / metrics / flow / compare / cards / case / takeaway` 语义块也必须正常渲染且不造成页面级横向溢出；Prompt Case 必须保持单外框结构；
 - 未识别 Block 的文本 fallback。
 
 ## 开发与接手

@@ -2972,6 +2972,55 @@ body.toc-open{overflow:hidden}
     line-height:1.68;
   }
 }
+
+/* Dense Note Quiet Pass: preserve note semantics while reducing repeated visual stops. */
+body.reader-dense-note .reader-prompt-card{
+  margin:14px 0 18px;
+  border-radius:10px;
+  box-shadow:none;
+}
+body.reader-dense-note .reader-prompt-card.is-collapsed .reader-prompt-body{
+  max-height:220px;
+}
+body.reader-dense-note .reader-prompt-card.is-collapsed::after{
+  height:36px;
+}
+body.reader-dense-note .reader-prompt-identity span,
+body.reader-dense-note .reader-commentary-label span{
+  color:var(--reader-muted);
+  font-size:12px;
+}
+body.reader-dense-note .reader-block--heading.reader-heading-major h2::after{
+  display:none;
+}
+body.reader-dense-note .reader-block--heading.reader-heading-long:not(.reader-commentary-item) h2,
+body.reader-dense-note .reader-block--heading.reader-heading-long:not(.reader-commentary-item) h3,
+body.reader-dense-note .reader-block--heading.reader-heading-long:not(.reader-commentary-item) h4{
+  padding:6px 0 6px 10px;
+  border-radius:0;
+  background:transparent;
+}
+body.reader-dense-note .reader-block--media.is-media-grid{
+  gap:12px;
+  margin-top:18px;
+  margin-bottom:24px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:none;
+}
+body.reader-dense-note .reader-video,
+body.reader-dense-note .reader-image,
+body.reader-dense-note .reader-image:hover,
+body.reader-dense-note .reader-content img[data-reader-zoomable]:hover{
+  box-shadow:none;
+}
+
+@media(max-width:700px){
+  body.reader-dense-note .reader-prompt-action{
+    min-height:40px;
+  }
+}
 @media(prefers-reduced-motion:reduce){
   *{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }

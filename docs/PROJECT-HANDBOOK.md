@@ -95,7 +95,7 @@ Viewer：
 - 桌面表格采用通用 AutoFit / Clamp：浏览器先按最终渲染内容测量每列自然宽度；整表能放进 Reader 时按自然宽度显示，不强行铺满；只有自然宽度超出可用空间时才铺满 Reader，并按“首选宽度 → 表头最小宽度”的可压缩空间分配列宽。禁止再用字段名、第一列身份、字符数、列数或固定语义权重决定列宽。numeric / percent / status / media 只控制视觉表达；包含百分号的长句不能因此被识别为百分比列。含 colspan / rowspan 或源 colgroup 的复杂表回退浏览器原生 auto layout；窄屏统一转为带字段标签的纵向记录卡。
 - Original Reader 支持 Long-form / Structured Report / Dense Note 三种自动阅读策略，且只能由通用文档结构信号触发，禁止按具体文章名、URL 或 Block ID 写死。Dense Note 在信号重叠时优先；Structured Report 只在非 Dense Note 的多章节、多表格/列表、短解释块型报告中触发。
 - Structured Report 不改源语义和顺序：H2 作为精简目录的 primary，H3/H4 作为 secondary 并可通过“全部”显式展开；正文采用低视觉噪声 Reading Visual Grammar，以字号、字重、间距和对齐建立层级，弱化表格阴影/斑马纹、Flow/Tier 卡片感与无必要强调色。桌面 AutoFit / Clamp、Splitter、媒体行为和窄屏记录卡契约保持不变。
-- Dense Note 不改源语义和顺序：H2/H3/H4 仍保留原标签，但视觉角色会分为 major / note / long；目录默认只显示 major，可切换“全部”；长 Prompt 使用自动换行、默认折叠、完整复制的 Prompt Card。
+- Dense Note 不改源语义和顺序：H2/H3/H4 仍保留原标签，但视觉角色会分为 major / note / long；目录默认只显示 major，可切换“全部”；长 Prompt 使用自动换行、默认折叠、完整复制的 Prompt Card。Dense Note 同样遵循低视觉噪声原则：Prompt 是功能容器而不是强装饰卡片，多媒体组不重复叠加外层 Surface，long note 只保留轻量层级，小字号 Meta 需保持足够对比度；这些规则只作用于 Dense Note，不通过修改全局 token 或 Explain Prompt 样式实现。
 - 连续短 Heading / Text 若表现为直播讲解、群聊摘录或现场速记，可进入 Commentary Stream。该模式只改变视觉角色：禁止凭空增加人物、头像、时间戳、对话方向或回复关系；major heading、媒体、代码、表格与 embed 均作为自然断点。
 - 原文深度拆解案例优先使用受控 `:::case` 指令展示标题、元信息、标签、摘要、可选本地媒体与证据边界；Prompt Library 必须保持“一案例一个一级矩形”，案例拆解、Prompt Anatomy、关键约束和完整 Prompt 处于同一 Case，Prompt 区不得再生成独立外框。未被源数据明确关联的视频与 Prompt 不得自动配对。
 - 图片-only Block 与 Heading 附图必须保留；空块判断要区分“无文字”和“无内容”。飞书内嵌 Sheet 优先通过已登录页面的 Sheet Copy / Clipboard HTML 提取单元格为普通 table，并在抓取后恢复用户剪贴板；只有提取失败时才输出可见 fallback。
@@ -432,7 +432,7 @@ GET http://127.0.0.1:4173/ → 200
 - 本地 MP4 支持 Range。
 - Reader 已用 9:16、16:9、1:1、4:3、同 Block Media Grid、table-cell、透明 Media Dialog、视频点击自动播放、重复标题以及 1920/1440/1366/390 四档视口 fixture 做自动回归。
 - Reader 回归还覆盖 Splitter 拖动、宽度持久化、双击复位、键盘调整、流式正文宽度、透明 Reader Canvas、结构化 Flow/Tier 自动识别，以及桌面 Smart Table 无横向滚动与窄屏记录卡模式。
-- 三模式 fixture 必须分别锁定 Long-form / Structured Report / Dense Note：Structured Report 专项覆盖通用结构判定、Dense Note 优先级、H2 primary + H3/H4 secondary Smart TOC、精简/全部切换、secondary ScrollSpy 回退、低噪声标题/表格/Flow、390px 记录卡与暗色模式；Dense Note 专项继续覆盖高标题密度、major/note/long、长 Prompt Card、长 URL 窄屏换行、Heading 附图、图片-only Block 与 Sheet fallback。真实测试文档只作为本地泛化验证，不把具体 URL/ID 写入 tracked 规范。
+- 三模式 fixture 必须分别锁定 Long-form / Structured Report / Dense Note：Structured Report 专项覆盖通用结构判定、Dense Note 优先级、H2 primary + H3/H4 secondary Smart TOC、精简/全部切换、secondary ScrollSpy 回退、低噪声标题/表格/Flow、390px 记录卡与暗色模式；Dense Note 专项继续覆盖高标题密度、major/note/long、长 Prompt Card、长 URL 窄屏换行、Heading 附图、图片-only Block 与 Sheet fallback，并锁定 Quiet Pass 的约 220px Prompt 预览、无装饰性 Shadow、轻量 Long/Media、可读 Meta、390px 触控高度、暗色层级以及 Explain Prompt 不受 Dense Note scope 污染。真实测试文档只作为本地泛化验证，不把具体 URL/ID 写入 tracked 规范。
 - 清理 Profile 可重建缓存后，登录会话仍可继续使用。
 
 不要把某个真实测试文档 ID 或 URL 写进 tracked 文件。
