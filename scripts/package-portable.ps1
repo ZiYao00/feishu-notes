@@ -64,9 +64,10 @@ try {
     Write-Utf8 $userConfig ''
     Write-Utf8 $globalConfig ''
     $lockPath = Join-Path $bundleRoot 'package-lock.json'
-    $lock = Get-Content -LiteralPath $lockPath -Raw -Encoding UTF8 | ConvertFrom-Json
-    foreach ($property in $lock.packages.PSObject.Properties) {
-        if ($property.Value.hasInstallScript) { throw 'An install script now exists. Review it before changing the ignore-scripts build policy.' }
+    $lockPackages = @((& $node -e 'console.log(JSON.stringify(Object.entries(require(process.argv[1]).packages).filter(item => item[0]).map(item => Object.assign({path:item[0]},item[1]))))' $lockPath) | ConvertFrom-Json)
+    if ($LASTEXITCODE -ne 0) { throw 'Lock file parsing failed.' }
+    foreach ($dependency in $lockPackages) {
+        if ($dependency.hasInstallScript) { throw 'An install script now exists. Review it before changing the ignore-scripts build policy.' }
     }
     $lockBefore = (Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash
     Push-Location $bundleRoot
@@ -82,11 +83,10 @@ try {
     Copy-Item -LiteralPath $node -Destination (Join-Path $runtime 'node.exe')
     Copy-Item -LiteralPath (Join-Path $officialNode 'LICENSE') -Destination (Join-Path $runtime 'LICENSE')
     $notices = @('# Third-party notices', '', 'Project code: UNLICENSED; no open-source license is granted.', '', "Node.js $nodeVersion Windows x64: full license and bundled notices in runtime/LICENSE.", '', '| Package | Version | License | License/notice files |', '| --- | --- | --- | --- |')
-    foreach ($property in $lock.packages.PSObject.Properties) {
-        if (-not $property.Name) { continue }
-        $modulePath = Join-Path $bundleRoot $property.Name
+    foreach ($dependency in $lockPackages) {
+        $modulePath = Join-Path $bundleRoot $dependency.path
         $module = Get-Content -LiteralPath (Join-Path $modulePath 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-        $licenseFiles = @(Get-ChildItem -LiteralPath $modulePath -File | Where-Object { $_.Name -match 'license|copying|notice' } | ForEach-Object { $property.Name + '/' + $_.Name })
+        $licenseFiles = @(Get-ChildItem -LiteralPath $modulePath -File | Where-Object { $_.Name -match 'license|copying|notice' } | ForEach-Object { $dependency.path + '/' + $_.Name })
         if (-not $licenseFiles.Count) { throw "No distributed license/notice found for $($module.name)." }
         $notices += "| $($module.name) | $($module.version) | $($module.license) | $($licenseFiles -join ', ') |"
     }
