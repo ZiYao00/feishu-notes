@@ -64,10 +64,10 @@ try {
     Write-Utf8 $userConfig ''
     Write-Utf8 $globalConfig ''
     $lockPath = Join-Path $bundleRoot 'package-lock.json'
-    $lockPackages = @((& $node -e 'console.log(JSON.stringify(Object.entries(require(process.argv[1]).packages).filter(item => item[0]).map(item => Object.assign({path:item[0]},item[1]))))' $lockPath) | ConvertFrom-Json)
+    $lockPackages = (& $node -e 'console.log(JSON.stringify(Object.entries(require(process.argv[1]).packages).filter(item => item[0]).map(item => Object.assign({path:item[0]},item[1]))))' $lockPath) | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0) { throw 'Lock file parsing failed.' }
     foreach ($dependency in $lockPackages) {
-        if ($dependency.hasInstallScript) { throw 'An install script now exists. Review it before changing the ignore-scripts build policy.' }
+        if ($dependency.hasInstallScript -eq $true) { throw 'An install script now exists. Review it before changing the ignore-scripts build policy.' }
     }
     $lockBefore = (Get-FileHash -LiteralPath $lockPath -Algorithm SHA256).Hash
     Push-Location $bundleRoot
