@@ -1,4 +1,6 @@
 node_modules/
+/runtime/
+/dist/
 
 # Local configuration and secrets
 config/local.json

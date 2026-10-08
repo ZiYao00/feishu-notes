@@ -119,6 +119,7 @@ For scanner/archive changes:
 For Viewer/service changes:
 
 - `npm run verify:reader`
+- `npm run verify:release` for service/runtime/HTTP changes; this covers minimum Node and video byte-range contracts.
 - Use `service.bat restart` after the repair so the running Viewer picks up the latest code.
 - GET `http://127.0.0.1:4173/` returns HTTP 200.
 - Local MP4 Range requests should return HTTP 206 when testing Viewer behavior.
@@ -129,6 +130,7 @@ For Viewer/service changes:
 
 ## Safety
 
+- Portable builds must retain Node and dependency license/NOTICE files and per-file build hashes. Use the committed-source allowlist in `scripts/package-portable.ps1`, not a working-directory ZIP. Bundled runtime/dependencies are artifact-only, not tracked source. Project code is currently UNLICENSED by owner decision.
 - Before a Release, follow `docs/PROJECT-HANDBOOK.md` section 14. Export only the authorized committed source; inspect artifact contents separately from `.gitignore`. Validate documented installation on a clean Windows environment without existing dependencies, configuration, profiles or archives. Record reused-dependency tests as simulations, not clean-install acceptance. Dependency installation, publishing and remote Git changes need their own authorization.
 - For Reader verification in this workspace, set `FEISHU_NOTES_VERIFY_KEEP_FIXTURE=1` so fixture creation does not trigger recursive deletion.
 

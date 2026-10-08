@@ -81,8 +81,8 @@ function main() {
     manifest = {
       version: 1,
       status: 'draft',
-      title: `${archive.title || folder} · 讲解版`,
-      description: '基于原始归档、方法论提炼和少量代表证据建立的本地讲解版。',
+      title: `${archive.title || folder} · 原文深度拆解`,
+      description: '基于原始归档的观点、结构、证据与适用边界建立的本地深度拆解。',
       source,
       evidence: {
         identity: 'archive media contentHash (SHA-256)',
@@ -102,8 +102,8 @@ function main() {
   if (!fs.existsSync(chapterManifestFile)) {
     fs.writeFileSync(chapterManifestFile, JSON.stringify({
       version: 1,
-      title: `${archive.title || folder} · 讲解版`,
-      description: '面向普通用户的连续讲解章节。只有 status=ready 且 Markdown 文件存在的章节才会公开显示。',
+      title: `${archive.title || folder} · 原文深度拆解`,
+      description: '按原文观点、证据和决策关系组织的连续拆解章节。',
       chapters: [],
     }, null, 2), 'utf8');
   }

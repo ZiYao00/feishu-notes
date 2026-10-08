@@ -103,3 +103,13 @@ Browser Reader CSS is a project-local runtime concern and does not depend on Obs
 ## Viewer security
 
 The viewer binds to loopback by default. Archived HTML is sanitized before it is written and is treated as inert content by the viewer. No source scripts are preserved. Local video is served with byte-range support for normal seeking.
+
+## Windows service and portable delivery
+
+`service.bat` is a small Windows PowerShell entry point. `scripts/service.ps1` manages only a listener whose command line belongs to this checkout's `src/cli.js serve`; an unrelated occupied port is never stopped. It reads host/port through `scripts/service-config.js` and the existing config loader, and passes the quoted entry path as one Start-Process argument string. Config changes require stopping the old configured listener before changing its port. `notes.bat` is the CLI entry point. Both prefer `runtime/node.exe` and fall back to system Node for source installations; neither changes the system PATH.
+
+`src/config/runtime.js` checks the declared minimum Node version and requires direct dependencies to resolve inside this project's node_modules. Ancestor or global dependency fallback must not mask an incomplete installation. Viewer does not require Chrome; capture and browser verification require a separately installed Chrome.
+
+`scripts/package-portable.ps1` exports a selected committed source tree through an artifact allowlist, verifies an official Windows x64 Node ZIP against the supplied official SHA-256, installs locked dependencies using that ZIP's npm and isolated configs/cache, and retains Node executable/LICENSE plus complete application dependency directories. Runtime npm and installation utilities are not shipped. Package installation scripts are disallowed pending review. The output ZIP contains empty data/library placeholders, per-file build hashes, and third-party license notices, never machine state or archived documents. Project code is UNLICENSED by the owner's decision; dependency licenses remain intact. The portable package is a local candidate until target-environment acceptance and explicit publication authorization.
+
+Video GET supports one byte range including suffix ranges, bounds validation and 416 for unsatisfiable ranges; invalid or multiple ranges are ignored with a full 200 response. HEAD reports full resource headers without applying Range. This contract is covered by `verify:release`.

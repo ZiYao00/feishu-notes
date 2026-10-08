@@ -279,13 +279,27 @@ function serveFile(req, res, file) {
   const type = contentType(file);
   const range = req.headers.range;
 
-  if (range && /^video\//.test(type)) {
-    const match = range.match(/bytes=(\d*)-(\d*)/);
-    if (match) {
-      const start = match[1] ? Number(match[1]) : 0;
-      const end = match[2] ? Number(match[2]) : stat.size - 1;
-      const safeEnd = Math.min(end, stat.size - 1);
-      if (start <= safeEnd) {
+  if (req.method === 'GET' && range && /^video\//.test(type)) {
+    const match = range.trim().match(/^bytes=(\d*)-(\d*)$/i);
+    if (match && (match[1] || match[2])) {
+      const first = match[1] ? Number(match[1]) : null;
+      const last = match[2] ? Number(match[2]) : null;
+      const valid = (first === null || Number.isSafeInteger(first)) &&
+        (last === null || Number.isSafeInteger(last)) &&
+        (first === null || last === null || first <= last);
+      if (valid) {
+        const start = first === null ? Math.max(0, stat.size - last) : first;
+        const safeEnd = first === null || last === null ? stat.size - 1 : Math.min(last, stat.size - 1);
+        if (stat.size === 0 || start > safeEnd) {
+          res.writeHead(416, {
+            'Content-Type': type,
+            'Content-Range': `bytes */${stat.size}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': 0,
+          });
+          res.end();
+          return;
+        }
         res.writeHead(206, {
           'Content-Type': type,
           'Content-Range': `bytes ${start}-${safeEnd}/${stat.size}`,
@@ -303,6 +317,7 @@ function serveFile(req, res, file) {
     'Content-Length': stat.size,
     'Accept-Ranges': /^video\//.test(type) ? 'bytes' : 'none',
   });
+  if (req.method === 'HEAD') { res.end(); return; }
   fs.createReadStream(file).pipe(res);
 }
 

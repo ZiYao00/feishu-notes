@@ -6,62 +6,60 @@
 
 > 项目入口说明：`http://127.0.0.1:4173` 不是静态网页，必须先启动本地 Viewer 服务。
 
-## 第一次安装（Windows 源码）
+## 第一次使用（Windows x64 便携包）
 
-当前仓库提供源码和启动脚本，不包含 Node.js、Chrome、npm 依赖、登录状态或示例文章。首次安装需要联网下载依赖；完成安装与归档后，本地阅读不需要飞书在线。
+便携 ZIP 包含 Node.js 运行时及锁定的 npm 依赖，无需安装 Node.js、npm 或 Git。包内没有文章、飞书账号、登录状态或本机配置。源码仓库本身不包含运行时和依赖，不能将源码 ZIP 当作便携包。
 
-1. 从 [Node.js 官方下载页](https://nodejs.org/en/download)安装 **Node.js 24 LTS**，使用安装器自带的 npm，并重新打开终端。本机验证版本为 Node.js 24.20.0 / npm 11.19.0；当前锁定依赖要求 Node.js 至少 22.12.0，较旧版本不适用，其他版本尚未完成环境验收。
-2. 需要抓取飞书文档时，安装 [Google Chrome](https://www.google.com/chrome/)。只阅读已有本地归档时，浏览器可自行选择；抓取、`check` 和 Reader 自动回归需要系统 Chrome。项目使用 `playwright-core` 连接 Chrome，无需额外下载 Playwright 浏览器。
-3. 将完整源码 ZIP 解压到自己有写入权限的目录。确认根目录同时包含 `package.json`、`package-lock.json`、`src/` 和 `service.bat`。下载 ZIP 不需要 Git。当前 BAT 存在含空格路径启动问题，使用 BAT 时暂选无空格、无特殊符号的目录；含空格目录可用下文的前台命令启动。
-4. 在项目根目录打开 PowerShell，执行：
+1. 将完整便携 ZIP 解压到自己有写入权限的目录，不在压缩包内直接运行。路径可包含中文和空格；不要放在需要管理员写入权限的系统目录。
+2. 双击 `service.bat`，选择菜单 5，或在该目录 PowerShell 执行 `.\service.bat start-open`。服务启动后打开 `http://127.0.0.1:4173/`。新安装显示空资料库是正常现象。
+3. 需要采集时，先安装 [Google Chrome](https://www.google.com/chrome/)，然后执行 `.\notes.bat check`。阅读已有本地归档可使用其它浏览器，不依赖 Chrome 或飞书登录。`check` 只检查 Chrome 和本地目录，不验证账号权限或归档完整性。
+4. 保存第一篇文章：
+
+```powershell
+.\notes.bat capture "<飞书文档URL>" --profile default
+```
+
+如果输出 `LOGIN_REQUIRED`，在新打开的专用 Chrome 窗口正常登录飞书，然后**重跑同一条 capture 命令**。日常 Chrome 的登录状态不会自动复制到这个 Profile。输出 `PERMISSION_DENIED` 时，确认文档已向该账号授权，或使用另一个有权限的 Profile。媒体软限制触发时，确认后才使用 `--confirm-large`。
+
+抓取结束检查输出的 `Archive status`，再刷新首页：`complete` 表示要求保存的媒体已本地化；`partial` 表示存在失败/跳过，需要查看该文章 `archive.json`；`pending_confirmation` 表示预检等待确认。原始文章自动生成；“原文深度拆解”需要单独维护，不会自动生成完整分析。
+
+`notes.bat` 与 `service.bat` 优先使用包内 `runtime/node.exe`，不修改系统 PATH。下文 CLI 示例统一使用 `notes.bat`；便携包不附带 npm，日常使用无需 npm。默认配置即可运行，不必创建 `config/local.json` 或填写 Secrets。
+
+### 开发者从源码安装
+
+从 [Node.js 官方下载页](https://nodejs.org/en/download)安装 **Node.js 24 LTS**，然后重新打开终端，在完整源码根目录执行：
 
 ```powershell
 node --version
 npm.cmd --version
 npm.cmd ci
+.\service.bat start-open
 ```
 
-首次安装采用 [npm ci](https://docs.npmjs.com/cli/v11/commands/npm-ci/)，使用随源码提供的锁文件。该命令在已有依赖目录中会重新安装依赖，不是日常启动命令。PowerShell 示例使用 `npm.cmd`，避免 `npm.ps1` 被执行策略拦截。
-
-默认配置即可运行，不必创建 `config/local.json` 或填写 Secrets。抓取前可执行 `node .\src\cli.js check`：它检查系统 Chrome，并创建/检查 Profile 和资料库目录；它不验证飞书登录、文档权限、媒体完整性或所有发布条件。
-
-### 首次打开与保存
-
-安装依赖后执行 `.\service.bat start-open`，或双击 `service.bat` 选择菜单 5。新安装的 `library/` 是空库，首页没有文章属于正常状态。
-
-保存第一篇文章：
-
-```powershell
-node .\src\cli.js capture "<飞书文档URL>" --profile default
-```
-
-如果输出 `LOGIN_REQUIRED`，在新打开的专用 Chrome 窗口正常登录飞书，然后**重跑同一条 capture 命令**。日常 Chrome 的登录状态不会自动复制到这个 Profile。输出 `PERMISSION_DENIED` 时，确认文档已向该账号授权，或改用另一个有权限的 Profile。软限制提示确认后，才按下文使用 `--confirm-large`。
-
-抓取结束检查输出的 `Archive status`，再刷新首页：`complete` 表示要求保存的媒体已本地化；`partial` 表示存在失败/跳过的媒体，需要查看该文章 `archive.json`；`pending_confirmation` 表示预检尚未开始批量下载。原始文章自动生成；“原文深度拆解”是单独维护的派生内容，不会在 capture 后自动生成完整分析。
+源码首次安装需要联网，采用 [npm ci](https://docs.npmjs.com/cli/v11/commands/npm-ci/) 与随源码的锁文件。PowerShell 使用 `npm.cmd` 可避免 `npm.ps1` 执行策略问题。`npm ci` 在已有依赖目录中会重新安装依赖，不是日常启动命令。实际独立安装验证为 Node.js 24.21.0 / npm 11.19.0；依赖下限为 Node.js 22.12.0，较旧版本会被入口拒绝，其它版本不作为已验收承诺。源码入口 `notes.bat` 在没有包内 Node 时使用系统 Node。
 
 ## 启动排错与迁移
 
 | 现象 | 处理方式 |
 | --- | --- |
-| 找不到 `node` / `npm.cmd` | 安装 Node.js 后重新打开终端，再检查版本；不要只解压源码后直接启动 |
-| `MODULE_NOT_FOUND` / Dependencies missing | 确认终端位于含锁文件的项目根目录，首次安装运行 `npm.cmd ci`；查看 `data/logs/viewer.log.err` |
-| npm 网络下载失败 | 检查到 npm registry 的网络访问，保留锁文件并重试；不要用删除锁文件代替排错 |
-| 系统 Chrome 未找到 | 安装 Chrome；非标准路径可通过 `config/local.json` 的 `browser.chromePath` 指定，JSON 使用 UTF-8 无 BOM，Windows 路径反斜杠需转义 |
-| BAT 显示未启动，安装路径含空格 | 在项目根目录用下方前台命令启动；当前 BAT 参数传递缺陷待修复 |
-| 默认端口被占用 / 修改端口后 BAT 状态不符 | BAT 当前固定管理 4173；改用前台命令和相应 URL，前台服务用 Ctrl+C 停止 |
-| 页面为空 / 找不到文章 | 新安装没有预置文章；先 capture 或迁入完整文章目录，而非只复制 Markdown |
+| 便携包缺少 `runtime/node.exe` 或依赖 | 重新解压完整便携 ZIP 到新目录；不要只复制 BAT 或源码。源码安装则安装 Node.js 24 LTS，再运行 `npm.cmd ci` |
+| Viewer 无法启动 | 查看终端提示及 `data/logs/viewer.log.err`；确认目录可写、ZIP 完整 |
+| npm 网络下载失败（源码安装） | 检查到 npm registry 的访问，保留锁文件并重试 |
+| 系统 Chrome 未找到 | 采集需要安装 Chrome；非标准路径可通过 `config/local.json` 的 `browser.chromePath` 指定，JSON 使用 UTF-8 无 BOM，Windows 路径反斜杠需转义 |
+| 端口被其它程序占用 | 在 `config/local.json` 设置 `viewer.port`，再启动；服务脚本不会停止无关进程 |
+| 页面为空 / 找不到文章 | 先 capture 或迁入完整文章目录，而非只复制 Markdown |
 
-前台启动（终端保持打开）：
+自定义端口示例（新建或合并到 `config/local.json`，勿覆盖已有其它设置）：
 
-```powershell
-node .\src\cli.js serve
-# 4173 被其它应用占用时：
-node .\src\cli.js serve --port 4174
+```json
+{"viewer":{"port":4174}}
 ```
 
-第二条命令对应 `http://127.0.0.1:4174`。自定义端口不使用当前 BAT 管理，勿按端口终止其它程序。
+`service.bat` 的启动、状态、重启和打开均读取同一配置，显示实际 URL。修改配置前先停止本项目 Viewer，再改端口并启动。手动前台启动也可使用 `.\notes.bat serve --port 4174`，该终端用 Ctrl+C 停止；临时 CLI 参数不会写回配置，BAT 只管理配置中的端口。
 
-换电脑时，在新电脑安装上述环境和源码，再将旧电脑 **完整 `library/`** 复制到新项目（包含 Markdown、HTML、`archive.json`、`assets/` 和可选 `explain/`）。已有文章无需飞书登录即可本地阅读；需要继续抓取时，在新电脑专用 Profile 重新登录。不要把旧电脑的 Chrome Profile 当作可跨电脑复用的登录凭据；本机配置中的绝对路径也需要重新检查。更新源码前自行备份资料库与本机配置，不要以解压覆盖方式替换私有数据。
+换电脑时，在新电脑解压便携包，将旧电脑 **完整 `library/`** 复制到新项目（包含 Markdown、HTML、`archive.json`、`assets/` 和可选 `explain/`）。已有文章无需飞书登录即可阅读；继续抓取需要安装 Chrome，并在新电脑专用 Profile 重新登录。不要把旧电脑的 Chrome Profile 当作可跨电脑复用的登录凭据；本机配置中的绝对路径也需要重新检查。
+
+升级时先停止旧 Viewer，备份资料库和本机配置，再将新包解压到独立目录并迁入资料库；保留旧目录便于回退。不要直接解压覆盖私有数据。跨电脑迁移与首次登录仍需真实目标电脑验收，当前本机隔离测试不能代替这个步骤。
 
 ## 最常用的方式
 
@@ -113,15 +111,15 @@ data/logs/viewer.log.err
 
 命令行：
 
-```bash
-node src/cli.js capture "<飞书文档URL>" --profile default
+```powershell
+.\notes.bat capture "<飞书文档URL>" --profile default
 ```
 
 例如不同账号可以使用不同 Profile：
 
-```bash
-node src/cli.js capture "<飞书文档URL>" --profile work
-node src/cli.js capture "<飞书文档URL>" --profile personal
+```powershell
+.\notes.bat capture "<飞书文档URL>" --profile work
+.\notes.bat capture "<飞书文档URL>" --profile personal
 ```
 
 第一次使用某个 Profile 时，会打开该 Profile 专属的 Chrome 窗口。用户只需要在这个窗口登录一次飞书；之后登录状态保存在：
@@ -212,8 +210,8 @@ library/<文章目录>/
 
 触发软限制时，不会静默跳过，也不会直接开始大批量下载。确认后可执行：
 
-```bash
-node src/cli.js capture "<飞书文档URL>" --profile default --confirm-large
+```powershell
+.\notes.bat capture "<飞书文档URL>" --profile default --confirm-large
 ```
 
 归档状态：
@@ -230,15 +228,11 @@ node src/cli.js capture "<飞书文档URL>" --profile default --confirm-large
 
 关闭该 Profile 的专用 Chrome 后执行：
 
-```bash
-node src/cli.js cleanup --profile default
+```powershell
+.\notes.bat cleanup --profile default
 ```
 
-或：
-
-```bash
-npm run cleanup -- --profile default
-```
+源码安装也可使用 `npm.cmd run cleanup -- --profile default`。
 
 Cleanup 只删除项目白名单中的可重建缓存。Cookies、Local Storage、IndexedDB、Network state 等认证/会话数据不在清理列表中。
 
@@ -247,6 +241,8 @@ Cleanup 只删除项目白名单中的可重建缓存。Cookies、Local Storage�
 ```text
 feishu-notes/
 ├─ service.bat              # Windows Viewer 服务入口
+├─ notes.bat                # CLI 入口，优先使用包内 Node
+├─ runtime/                 # 便携包内 Node 与第三方许可（源码仓库忽略）
 ├─ src/                     # 程序源码
 ├─ config/                  # 默认配置 + 本机配置模板
 ├─ secrets/                 # 本地凭据模板
@@ -356,3 +352,17 @@ npm.cmd run verify:reader
 详细项目边界、操作流程、测试规则和不可破坏约束见 `docs/PROJECT-HANDBOOK.md`。
 
 发布前的制品范围、新环境验收和证据要求见 [项目手册：Release 准备与验收](docs/PROJECT-HANDBOOK.md#14-release-准备与验收)。当前仓库尚未完成新电脑从零安装验收，不能以本机 Reader 回归通过代替发布就绪。
+
+## 本地构建便携包与许可
+
+维护者在提交并检查源码后，下载官方 Windows x64 Node ZIP，从同版本 [SHASUMS256.txt](https://nodejs.org/dist/) 核对 SHA-256，然后执行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-portable.ps1 -NodeZip "<官方NodeZIP路径>" -NodeSha256 "<官方SHA256>" -Ref HEAD
+```
+
+脚本只从指定本地提交导出白名单源码，在独立目录按锁文件安装依赖，校验 Node 与依赖，并在 `dist/build-*/` 生成 ZIP、哈希及构建清单。构建需要 Git 和联网访问 npm registry，使用 Node ZIP 自带的 npm，不安装全局软件。构建不执行依赖安装脚本；依赖出现安装脚本时会中止要求重新审查。构建工作目录和缓存保留，不自动清理。
+
+制品内 `BUILD-MANIFEST.json` 记录源码提交、Node 版本、输入 ZIP 校验值和逐文件哈希；`THIRD-PARTY-NOTICES.md` 列出依赖及许可文件。用户下载/解压后不再需要 npm registry。正式 Release 前必须按项目手册第 14 节验收实际候选 ZIP。
+
+当前项目代码**暂不授予开源许可**，`package.json` 标记 `UNLICENSED`；不提供 MIT/Apache 等项目源码授权。Node 与第三方依赖继续适用各自许可，原始许可和 NOTICE 随便携包保留。当前没有配置 Git remote，本地候选包不等于已发布 Release。

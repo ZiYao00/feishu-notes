@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+try {
+  require('./config/runtime').assertRuntime();
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 const fs = require('fs');
 const path = require('path');
 const { loadConfig } = require('./config/load-config');

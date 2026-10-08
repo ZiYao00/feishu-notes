@@ -2,9 +2,14 @@
   "name": "feishu-notes",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "description": "Local Feishu note archiver and offline reader",
   "main": "src/cli.js",
   "type": "commonjs",
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=9"
+  },
   "scripts": {
     "capture": "node src/cli.js capture",
     "serve": "node src/cli.js serve",
@@ -13,7 +18,8 @@
     "init:explain": "node scripts/init-explain.js",
     "transcribe:evidence": "node scripts/transcribe-evidence.js",
     "extract:frames": "node scripts/extract-evidence-frames.js",
-    "verify:reader": "node scripts/verify-reader.js"
+    "verify:reader": "node scripts/verify-reader.js",
+    "verify:release": "node scripts/verify-release.js"
   },
   "dependencies": {
     "playwright-core": "^1.63.0",
