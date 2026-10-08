@@ -25,6 +25,7 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Never hard-code user-specific absolute paths, Obsidian paths, private document URLs, cookies, tokens, passwords, or API keys in tracked files.
 - Track templates/defaults only.
 - Local machine configuration, secrets, browser profiles, runtime state, cache, logs, and archived note content must remain Git-ignored.
+- Local rollback copies under `data/backups/` are private user data too; never stage them or include them in a Release artifact.
 - Do not commit/push unless explicitly authorized.
 
 ## Browser/Profile rules
@@ -62,6 +63,9 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Original archive files remain the source of truth. Derived source-deconstruction material belongs under `library/<article>/explain/` and must never be written into `archive.json`.
 - Viewer support for Explain must remain optional; ordinary archived articles must work with no Explain directory and no ASR service.
 - Public UI calls Explain **原文深度拆解**. Its job is to analyze source claims, evidence, structure, trade-offs and reusable cases; avoid teacher-note, study-instruction or editorial-process wording addressed to the reader.
+- Explain must support continuous document reading: prose carries argument, long independent records use lists, and repeated fields use light tables when comparison is needed. Keep visual directives only where their information relationship warrants them; numeric card metadata must not automatically outrank explanatory copy. Compare reuses Reader table layout and narrow-screen labeled records. Preserve evidence boundaries, statistical uncertainty and chapter/subsection anchor order, and regress neighboring Explain Case/Prompt surfaces after shared changes.
+- Follow `docs/EXPLAIN-WORKFLOW.md` for reading-task and component selection: explanatory chapters prioritize sustained reading, while complete media/Prompt libraries retain functional Cases. Case analysis stays at body size; Prompt structure does not imply a sequence. Preserve full Prompt code, media identities and table field/header meaning when simplifying content.
+- Original Reader and Explain share section-level whitespace through `--reader-section-gap` (currently a 60px trial); do not apply it to ordinary paragraphs or nested Case/table content, and avoid duplicate wrapper/child margins.
 - `explain/manifest.json` must keep a source fingerprint so source updates can be detected instead of silently presenting stale deconstruction material.
 - Public Explain content is chapter-driven: `explain/chapters/manifest.json` + Markdown chapters. Only `status=ready` chapters with an existing file are user-visible.
 - Keep chapter Markdown as separate maintainable source files, but render every ready chapter in manifest order as one continuous public page. Desktop chapter navigation and the narrow-screen chapter selector must scroll within that page and synchronize active state; they must not paginate or reload chapters. Legacy `?chapter=<id>` links may redirect to the equivalent `#chapter-<id>` anchor.
@@ -124,6 +128,9 @@ For Viewer/service changes:
 - Do not stop the Viewer at the end unless the user explicitly asks for it to be stopped.
 
 ## Safety
+
+- Before a Release, follow `docs/PROJECT-HANDBOOK.md` section 14. Export only the authorized committed source; inspect artifact contents separately from `.gitignore`. Validate documented installation on a clean Windows environment without existing dependencies, configuration, profiles or archives. Record reused-dependency tests as simulations, not clean-install acceptance. Dependency installation, publishing and remote Git changes need their own authorization.
+- For Reader verification in this workspace, set `FEISHU_NOTES_VERIFY_KEEP_FIXTURE=1` so fixture creation does not trigger recursive deletion.
 
 - Preserve unrelated files.
 - Do not recursively delete project/runtime/user data unless explicitly authorized.

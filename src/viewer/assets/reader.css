@@ -22,6 +22,7 @@
   --reader-gap-md:1rem;
   --reader-gap-lg:1.4rem;
   --reader-gap-xl:2rem;
+  --reader-section-gap:60px;
   --reader-toc-width:208px;
   --reader-toc-collapsed:48px;
   --reader-splitter-width:12px;
@@ -197,7 +198,7 @@ html[data-theme="dark"] .reader-theme-toggle::before{content:"☀"}
   align-items:start;
 }
 body.toc-collapsed .reader-layout{
-  grid-template-columns:var(--reader-toc-collapsed) 0 minmax(0,1fr);
+  grid-template-columns:var(--reader-toc-collapsed) minmax(0,1fr);
 }
 .reader-toc{
   position:sticky;
@@ -1844,55 +1845,7 @@ body.reader-prompt-heavy .reader-prompt-card,
   font-size:17px;
   line-height:1;
 }
-.learning-compare{
-  overflow:hidden;
-  border:1px solid var(--reader-border);
-  border-radius:15px;
-  background:var(--reader-surface);
-}
-.learning-compare>.learning-block-title{
-  margin:0;
-  padding:17px 18px 12px;
-}
-.learning-compare-head,
-.learning-compare-row{
-  display:grid;
-  grid-template-columns:150px minmax(0,1fr) minmax(0,1fr);
-}
-.learning-compare-head{
-  border-top:1px solid var(--reader-border);
-  border-bottom:1px solid var(--reader-border);
-  background:var(--reader-surface-soft);
-}
-.learning-compare-head>*{
-  padding:10px 14px;
-  color:var(--reader-muted);
-  font-size:12px;
-}
-.learning-compare-head strong:last-child{color:var(--reader-accent)}
-.learning-compare-row+.learning-compare-row{border-top:1px solid var(--reader-border)}
-.learning-compare-row>*{
-  min-width:0;
-  padding:13px 14px;
-  font-size:13.5px;
-  line-height:1.55;
-}
-.learning-compare-key{
-  background:var(--reader-surface-soft);
-  color:var(--reader-muted);
-  font-weight:760;
-}
-.learning-compare-cell{color:var(--reader-text)}
-.learning-compare-cell:last-child{
-  background:var(--reader-accent-soft-2);
-}
-.learning-compare-row .is-numeric{
-  color:var(--reader-accent);
-  font-size:17px;
-  font-weight:800;
-  line-height:1.4;
-  font-variant-numeric:tabular-nums;
-}
+.learning-compare{overflow:visible}
 .learning-card-grid{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -1918,14 +1871,6 @@ body.reader-prompt-heavy .reader-prompt-card,
   font-size:12.5px;
   font-weight:750;
   line-height:1.4;
-}
-.learning-card-meta.is-numeric{
-  margin-top:8px;
-  font-size:21px;
-  font-weight:830;
-  line-height:1.15;
-  letter-spacing:-.02em;
-  font-variant-numeric:tabular-nums;
 }
 .learning-card p{
   margin:9px 0 0;
@@ -2141,8 +2086,6 @@ body.explain-chapter-reader .learning-case--prompt > .reader-prompt-card.reader-
   .learning-hero{padding:22px 20px}
   .learning-split-grid{grid-template-columns:1fr}
   .learning-metric-grid,.learning-card-grid{grid-template-columns:1fr}
-  .learning-compare{overflow-x:auto}
-  .learning-compare-head,.learning-compare-row{min-width:720px}
   .learning-case{padding:16px}
   .learning-case-head{flex-direction:column;gap:10px}
   .learning-case-tags{max-width:none;justify-content:flex-start}
@@ -3023,4 +2966,117 @@ body.reader-dense-note .reader-content img[data-reader-zoomable]:hover{
 }
 @media(prefers-reduced-motion:reduce){
   *{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}
+
+/* Explain reading: prose carries analysis; diagrams retain their semantic task. */
+body.explain-chapter-reader .learning-block:not(.learning-case){
+  max-width:min(100%,var(--reader-prose-max));
+}
+body.explain-chapter-reader .learning-hero{
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+body.explain-chapter-reader .learning-hero h2{font-size:20px;line-height:1.5}
+body.explain-chapter-reader .learning-hero p,
+body.explain-chapter-reader .learning-panel p,
+body.explain-chapter-reader .learning-card p{
+  color:var(--reader-text);
+  font-size:16px;
+  line-height:1.75;
+}
+body.explain-chapter-reader .learning-panel,
+body.explain-chapter-reader .learning-card{
+  padding:14px 16px;
+  border-radius:8px;
+  background:transparent;
+}
+body.explain-chapter-reader .learning-card-meta,
+body.explain-chapter-reader .learning-panel-label,
+body.explain-chapter-reader .learning-metric small{
+  color:var(--reader-muted);
+  font-size:13px;
+  line-height:1.6;
+}
+body.explain-chapter-reader .learning-card strong{font-size:16px}
+body.explain-chapter-reader .learning-flow-track{box-shadow:none;border-radius:8px}
+body.explain-chapter-reader .learning-flow-copy p{
+  color:var(--reader-text);
+  font-size:15px;
+  line-height:1.7;
+}
+body.explain-chapter-reader .learning-takeaway{
+  padding:16px 18px;
+  border-radius:8px;
+  background:var(--reader-surface-soft);
+  border-color:var(--reader-border);
+}
+body.explain-chapter-reader .learning-takeaway li{font-size:16px;line-height:1.75}
+body.explain-chapter-reader .learning-case-summary,
+body.explain-chapter-reader .learning-case-section li{
+  color:var(--reader-text);
+  font-size:16px;
+  line-height:1.75;
+}
+body.explain-chapter-reader .learning-case-meta{
+  color:var(--reader-muted);
+  font-size:13px;
+}
+body.explain-chapter-reader .learning-case-section-title{
+  font-size:14px;
+  letter-spacing:0;
+}
+body.explain-chapter-reader .learning-case-anatomy ul{
+  list-style:disc;
+  padding-left:18px;
+}
+body.explain-chapter-reader .learning-case-anatomy li{padding-left:0}
+body.explain-chapter-reader .learning-case-anatomy li::after{content:none}
+body.explain-chapter-reader .reader-table-wrap{
+  border-radius:0;
+  box-shadow:none;
+}
+body.explain-chapter-reader .reader-table-wrap td,
+body.explain-chapter-reader .reader-table-wrap tbody th{
+  font-size:16px;
+  line-height:1.7;
+  color:var(--reader-text);
+  background:var(--reader-surface);
+}
+body.explain-chapter-reader .learning-compare .reader-table-wrap{margin:12px 0 0}
+@media(max-width:900px){
+  body.explain-chapter-reader .reader-smart-table tbody>tr:not(.reader-table-head-row){
+    box-shadow:none;
+    border-radius:8px;
+  }
+  body.explain-chapter-reader .reader-smart-table tbody>tr:not(.reader-table-head-row)>td,
+  body.explain-chapter-reader .reader-smart-table tbody>tr:not(.reader-table-head-row)>th{
+    grid-template-columns:minmax(0,1fr);
+    gap:4px;
+  }
+  body.explain-chapter-reader .reader-smart-table tbody>tr:not(.reader-table-head-row)>td::before,
+  body.explain-chapter-reader .reader-smart-table tbody>tr:not(.reader-table-head-row)>th::before{
+    color:var(--reader-muted);
+    font-size:12px;
+  }
+}
+
+/* Space independent reading sections without changing their internal rhythm. */
+body .reader-article>.reader-block--heading:not(.reader-commentary-item),
+body .explain-chapter-section>.reader-block--heading{
+  margin-top:var(--reader-section-gap);
+}
+body .reader-article>.reader-block--heading:not(.reader-commentary-item)>:is(h2,h3,h4),
+body .explain-chapter-section>.reader-block--heading>:is(h2,h3,h4){
+  margin-top:0;
+}
+body .reader-article>:is(.reader-block--table,.reader-block--media,.reader-block--code,.learning-block,blockquote,hr),
+body .explain-chapter-section>:is(.reader-block--table,.reader-block--media,.reader-block--code,.learning-block,blockquote,hr){
+  margin-block:var(--reader-section-gap);
+}
+body .reader-article>:is(.reader-block--table,.reader-block--media,.reader-block--code)>:is(.reader-table-wrap,.reader-media,.reader-structured,pre),
+body .explain-chapter-section>:is(.reader-block--table,.reader-block--media,.reader-block--code)>:is(.reader-table-wrap,.reader-media,.reader-structured,pre){
+  margin-block:0;
 }

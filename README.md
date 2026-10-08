@@ -6,6 +6,63 @@
 
 > 项目入口说明：`http://127.0.0.1:4173` 不是静态网页，必须先启动本地 Viewer 服务。
 
+## 第一次安装（Windows 源码）
+
+当前仓库提供源码和启动脚本，不包含 Node.js、Chrome、npm 依赖、登录状态或示例文章。首次安装需要联网下载依赖；完成安装与归档后，本地阅读不需要飞书在线。
+
+1. 从 [Node.js 官方下载页](https://nodejs.org/en/download)安装 **Node.js 24 LTS**，使用安装器自带的 npm，并重新打开终端。本机验证版本为 Node.js 24.20.0 / npm 11.19.0；当前锁定依赖要求 Node.js 至少 22.12.0，较旧版本不适用，其他版本尚未完成环境验收。
+2. 需要抓取飞书文档时，安装 [Google Chrome](https://www.google.com/chrome/)。只阅读已有本地归档时，浏览器可自行选择；抓取、`check` 和 Reader 自动回归需要系统 Chrome。项目使用 `playwright-core` 连接 Chrome，无需额外下载 Playwright 浏览器。
+3. 将完整源码 ZIP 解压到自己有写入权限的目录。确认根目录同时包含 `package.json`、`package-lock.json`、`src/` 和 `service.bat`。下载 ZIP 不需要 Git。当前 BAT 存在含空格路径启动问题，使用 BAT 时暂选无空格、无特殊符号的目录；含空格目录可用下文的前台命令启动。
+4. 在项目根目录打开 PowerShell，执行：
+
+```powershell
+node --version
+npm.cmd --version
+npm.cmd ci
+```
+
+首次安装采用 [npm ci](https://docs.npmjs.com/cli/v11/commands/npm-ci/)，使用随源码提供的锁文件。该命令在已有依赖目录中会重新安装依赖，不是日常启动命令。PowerShell 示例使用 `npm.cmd`，避免 `npm.ps1` 被执行策略拦截。
+
+默认配置即可运行，不必创建 `config/local.json` 或填写 Secrets。抓取前可执行 `node .\src\cli.js check`：它检查系统 Chrome，并创建/检查 Profile 和资料库目录；它不验证飞书登录、文档权限、媒体完整性或所有发布条件。
+
+### 首次打开与保存
+
+安装依赖后执行 `.\service.bat start-open`，或双击 `service.bat` 选择菜单 5。新安装的 `library/` 是空库，首页没有文章属于正常状态。
+
+保存第一篇文章：
+
+```powershell
+node .\src\cli.js capture "<飞书文档URL>" --profile default
+```
+
+如果输出 `LOGIN_REQUIRED`，在新打开的专用 Chrome 窗口正常登录飞书，然后**重跑同一条 capture 命令**。日常 Chrome 的登录状态不会自动复制到这个 Profile。输出 `PERMISSION_DENIED` 时，确认文档已向该账号授权，或改用另一个有权限的 Profile。软限制提示确认后，才按下文使用 `--confirm-large`。
+
+抓取结束检查输出的 `Archive status`，再刷新首页：`complete` 表示要求保存的媒体已本地化；`partial` 表示存在失败/跳过的媒体，需要查看该文章 `archive.json`；`pending_confirmation` 表示预检尚未开始批量下载。原始文章自动生成；“原文深度拆解”是单独维护的派生内容，不会在 capture 后自动生成完整分析。
+
+## 启动排错与迁移
+
+| 现象 | 处理方式 |
+| --- | --- |
+| 找不到 `node` / `npm.cmd` | 安装 Node.js 后重新打开终端，再检查版本；不要只解压源码后直接启动 |
+| `MODULE_NOT_FOUND` / Dependencies missing | 确认终端位于含锁文件的项目根目录，首次安装运行 `npm.cmd ci`；查看 `data/logs/viewer.log.err` |
+| npm 网络下载失败 | 检查到 npm registry 的网络访问，保留锁文件并重试；不要用删除锁文件代替排错 |
+| 系统 Chrome 未找到 | 安装 Chrome；非标准路径可通过 `config/local.json` 的 `browser.chromePath` 指定，JSON 使用 UTF-8 无 BOM，Windows 路径反斜杠需转义 |
+| BAT 显示未启动，安装路径含空格 | 在项目根目录用下方前台命令启动；当前 BAT 参数传递缺陷待修复 |
+| 默认端口被占用 / 修改端口后 BAT 状态不符 | BAT 当前固定管理 4173；改用前台命令和相应 URL，前台服务用 Ctrl+C 停止 |
+| 页面为空 / 找不到文章 | 新安装没有预置文章；先 capture 或迁入完整文章目录，而非只复制 Markdown |
+
+前台启动（终端保持打开）：
+
+```powershell
+node .\src\cli.js serve
+# 4173 被其它应用占用时：
+node .\src\cli.js serve --port 4174
+```
+
+第二条命令对应 `http://127.0.0.1:4174`。自定义端口不使用当前 BAT 管理，勿按端口终止其它程序。
+
+换电脑时，在新电脑安装上述环境和源码，再将旧电脑 **完整 `library/`** 复制到新项目（包含 Markdown、HTML、`archive.json`、`assets/` 和可选 `explain/`）。已有文章无需飞书登录即可本地阅读；需要继续抓取时，在新电脑专用 Profile 重新登录。不要把旧电脑的 Chrome Profile 当作可跨电脑复用的登录凭据；本机配置中的绝对路径也需要重新检查。更新源码前自行备份资料库与本机配置，不要以解压覆盖方式替换私有数据。
+
 ## 最常用的方式
 
 ### 1. 打开本地笔记库
@@ -30,19 +87,19 @@ http://127.0.0.1:4173
 
 也可以在命令行执行：
 
-```bat
-service.bat start-open
+```powershell
+.\service.bat start-open
 ```
 
 常用服务命令：
 
-```bat
-service.bat start
-service.bat stop
-service.bat restart
-service.bat status
-service.bat open
-service.bat start-open
+```powershell
+.\service.bat start
+.\service.bat stop
+.\service.bat restart
+.\service.bat status
+.\service.bat open
+.\service.bat start-open
 ```
 
 Viewer 日志写入：
@@ -104,6 +161,8 @@ data/profiles/<profile>/
 - 对暂未识别的未来 Block 使用保守降级：优先保留文本或媒体，避免静默丢内容。
 - 本地视频支持 HTTP Range，可在浏览器拖动播放进度。
 - 可选建立 `explain/` 派生深度拆解层：技术目录与路由继续使用 Explain 命名，公开 UI 统一称“原文深度拆解”；保留原始归档不变，Viewer 首页以“进入深度拆解”为主入口、“查看原始文章”为次入口。
+- 原文深度拆解优先连续文档阅读；分类和重复字段采用列表或轻表格，真实顺序保留 Flow，视频与 Prompt 案例库保留播放、复制和展开的功能容器。组件选择及阅读验收以 `docs/EXPLAIN-WORKFLOW.md` 为准。
+- 原始文章和原文深度拆解的独立版块共用 60px 留白；普通段落与案例内部维持紧凑阅读节奏。桌面目录收起后正文占据剩余宽度，不再挤入窄列导致页面异常增高。Case 分析正文采用 16px，元信息保持次级层次。
 - 公开深度拆解内容使用 `explain/chapters/manifest.json + chapters/*.md`：章节 Markdown 继续分文件维护，但 Viewer 会按 manifest 顺序把全部 `ready` 章节合并成一篇从上到下的长页面，不再使用上一章/下一章或 `?chapter=` 分页。桌面左侧章节导航与窄屏顶部章节选择都只在当前页面滚动到对应锚点，并随手动滚动同步当前章节；旧 `?chapter=<id>` 链接兼容跳转到对应 `#chapter-<id>`。结构完整的原报告默认保留原维度顺序，并可使用受控的视觉语义块（对照、数据、流程、比较、分类、总结）减少连续长文阅读压力。
 - Explain 证据链以视频 `contentHash` 为唯一身份，ASR、关键帧、案例等内部素材均可回溯到原始媒体及 Block 位置。
 - Viewer 首页、原始文章与原文深度拆解统一使用单个亮/暗切换按钮，并通过 `feishu-notes-theme` 在本机持久化。
@@ -214,6 +273,7 @@ feishu-notes/
 config/local.json
 secrets/credentials.local.json
 data/profiles/
+data/backups/
 ```
 
 但这些文件/目录全部被 Git 忽略。
@@ -263,11 +323,12 @@ data/styles/reader.user.css
 
 修改 Reader、媒体布局或 Viewer 后运行：
 
-```bash
-npm run verify:reader
+```powershell
+$env:FEISHU_NOTES_VERIFY_KEEP_FIXTURE = '1'
+npm.cmd run verify:reader
 ```
 
-该测试使用项目内临时 fixture，不依赖真实飞书文档，覆盖：
+该测试需要系统 Chrome，使用项目内临时 fixture，不依赖真实飞书文档。上述环境变量保留测试数据于 `data/tmp/`，避免自动递归清理。覆盖：
 
 - 9:16、16:9、1:1、4:3 视频布局；
 - standalone 与 table-cell 两种媒体上下文；
@@ -279,6 +340,7 @@ npm run verify:reader
 - 1920 / 1440 / 1366 / 390 四档视口均不得出现页面级横向溢出；Smart Table 回归覆盖短表自然收宽、长表超宽后 Clamp、长句内含百分号不误判、短编号列不抢宽、合并单元格原生 fallback、Splitter 改宽后重新适配，以及 390px 下全部转为记录卡；Structured Report 还要验证低噪声桌面表格、移动端记录卡、纵向 Flow 和暗色模式；
 - Dense Note 回归另外锁定 Quiet Pass：折叠 Prompt 保持约 220px 预览、无装饰性阴影、Major 不重复使用短强调线、Long Note 与 Media Grid 保持轻量 Surface、Meta 使用可读对比度，390px Prompt 操作按钮保持约 40px 触控高度，并验证暗色模式及 Explain Prompt 样式不受 Dense Note 局部覆盖影响；
 - TOC 靠左、折叠状态、Splitter 拖动/持久化/双击复位，以及正文随剩余空间流式变化；
+- 桌面 TOC 收起后的正文宽度与页面高度、60px 版块间距、Compare 语义表格字段与窄屏标签，以及 Explain Case 正文字号、元信息层级、结构列表和手机暗色阅读；
 - 大白 Paper 已取消；Long-form 保持既有 Reading Enhancement，Structured Report 与 Dense Note 都遵循低视觉噪声 Reading Visual Grammar，但 Dense Note 继续保留知识点 / Prompt / Commentary 的功能语义；原文深度拆解的 `hero / split / metrics / flow / compare / cards / case / takeaway` 语义块也必须正常渲染且不造成页面级横向溢出；Prompt Case 必须保持单外框结构；
 - 未识别 Block 的文本 fallback。
 
@@ -292,3 +354,5 @@ npm run verify:reader
 4. `README.md`
 
 详细项目边界、操作流程、测试规则和不可破坏约束见 `docs/PROJECT-HANDBOOK.md`。
+
+发布前的制品范围、新环境验收和证据要求见 [项目手册：Release 准备与验收](docs/PROJECT-HANDBOOK.md#14-release-准备与验收)。当前仓库尚未完成新电脑从零安装验收，不能以本机 Reader 回归通过代替发布就绪。

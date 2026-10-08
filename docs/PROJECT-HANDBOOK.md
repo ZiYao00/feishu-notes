@@ -109,19 +109,21 @@ Viewer：
 Explain 是可选能力，不改变归档主流程：
 
 - 原始 Markdown / HTML / `archive.json` / `assets/` 继续作为 Source of Truth；
-- 派生教学内容只放在 `library/<article>/explain/`，不把自定义字段写回 `archive.json`；
-- Viewer 只有在 `explain/chapters/manifest.json` 存在至少一个 `ready` 且 Markdown 文件实际存在的章节时，才显示学习入口；
+- 派生拆解内容只放在 `library/<article>/explain/`，不把自定义字段写回 `archive.json`；
+- Viewer 只有在 `explain/chapters/manifest.json` 存在至少一个 `ready` 且 Markdown 文件实际存在的章节时，才显示深度拆解入口；
 - 首页以“进入深度拆解”为主入口、“查看原始文章”为次入口；`/explain/<folder>/` 直接渲染所有 `ready` 章节为一篇连续长页面，不再经过 Course Map、Lesson Landing 或上一章/下一章分页；
 - 章节 Markdown 继续按文件拆分维护，但桌面左侧章节导航和窄屏章节选择都只做当前页面锚点滚动，并由 ScrollSpy 同步当前章节；旧 `?chapter=<id>` 链接重定向到对应 `#chapter-<id>` 以兼容历史收藏；
 - 公开内容来自 `explain/chapters/`；历史 `explain/lessons/`、Evidence Cases、ASR 与 Frame 数据属于内部素材，不进入普通导航；
 - `explain/manifest.json` 保存原文 `savedAt` 与 SHA-256 指纹，原归档更新后应提示深度拆解重新复核；
-- 原文深度拆解默认从原文的观点、证据、技术路线、数据边界与案例结构出发。结构清晰的报告可沿用原主顺序；现场记录/碎片资料允许按概念与决策关系重组，但必须保留来源边界，避免教师式“怎么学/先记住”口吻。并列、因果、对比、数据、分类与案例使用不同视觉语义组件；完整规范见 `docs/EXPLAIN-WORKFLOW.md`；
+- 原文深度拆解默认从原文的观点、证据、技术路线、数据边界与案例结构出发。结构清晰的报告可沿用原主顺序；现场记录/碎片资料允许按概念与决策关系重组，但必须保留来源边界，避免教师式“怎么学/先记住”口吻。论证优先普通文档排版，分类与对比按信息关系选择列表或轻表格，真实顺序才使用 Flow；视频与 Prompt 案例库保留功能容器。组件选择、字号和版块留白的统一规范见 `docs/EXPLAIN-WORKFLOW.md`；
 - 视频证据统一使用归档 `contentHash` 作为身份，`media-index.json` 负责回溯逻辑媒体 ID、Block、上下文和物理文件；
 - ASR 是外部本地能力，Viewer 本身不能依赖 ASR 服务在线；
 - 关键帧只按明确时间点少量抽取，并通过 `frames.json` 保存时间戳与图片 SHA-256；
 - 完整规范见 `docs/EXPLAIN-WORKFLOW.md`。
 
 ## 3. 使用入口
+
+新用户先按 `README.md` 的“第一次安装（Windows 源码）”完成 Node.js、npm 依赖和可选抓取所需 Chrome 的准备。README 是安装与首次登录流程的唯一维护入口，本手册保留开发、数据和验收契约。当前本机基线为 Node.js 24.20.0 / npm 11.19.0；系统 Chrome 由项目检测，源码不捆绑浏览器。
 
 ### Windows 用户
 
@@ -227,6 +229,8 @@ data/cache/
 data/state/
 data/tmp/
 data/logs/
+data/styles/
+data/backups/
 library/
 ```
 
@@ -432,6 +436,7 @@ GET http://127.0.0.1:4173/ → 200
 - 本地 MP4 支持 Range。
 - Reader 已用 9:16、16:9、1:1、4:3、同 Block Media Grid、table-cell、透明 Media Dialog、视频点击自动播放、重复标题以及 1920/1440/1366/390 四档视口 fixture 做自动回归。
 - Reader 回归还覆盖 Splitter 拖动、宽度持久化、双击复位、键盘调整、流式正文宽度、透明 Reader Canvas、结构化 Flow/Tier 自动识别，以及桌面 Smart Table 无横向滚动与窄屏记录卡模式。
+- 阅读收尾回归覆盖桌面目录收起后的宽度/高度、60px 独立版块留白、Compare 语义表格与手机字段标签，以及 Explain Case 的 16px 正文、次级元信息、普通结构列表和亮暗层级。章节参数与公开锚点顺序继续保留，完整 Prompt 与原始归档必须独立核验不变。
 - 三模式 fixture 必须分别锁定 Long-form / Structured Report / Dense Note：Structured Report 专项覆盖通用结构判定、Dense Note 优先级、H2 primary + H3/H4 secondary Smart TOC、精简/全部切换、secondary ScrollSpy 回退、低噪声标题/表格/Flow、390px 记录卡与暗色模式；Dense Note 专项继续覆盖高标题密度、major/note/long、长 Prompt Card、长 URL 窄屏换行、Heading 附图、图片-only Block 与 Sheet fallback，并锁定 Quiet Pass 的约 220px Prompt 预览、无装饰性 Shadow、轻量 Long/Media、可读 Meta、390px 触控高度、暗色层级以及 Explain Prompt 不受 Dense Note scope 污染。真实测试文档只作为本地泛化验证，不把具体 URL/ID 写入 tracked 规范。
 - 清理 Profile 可重建缓存后，登录会话仍可继续使用。
 
@@ -470,3 +475,44 @@ config/secrets = 本机可隔离
 Viewer = 离线读取
 Feishu = 采集来源，不是离线阅读依赖
 ```
+
+## 14. Release 准备与验收
+
+### 发布范围与交付选择
+
+当前代码形态是 Windows 本地源码工具，源码 ZIP 不包含运行时、依赖和用户数据；是否制作便携包、正式支持哪些 Windows 版本/架构、版本号、发布仓库及许可证，需要在正式发布前确定。只允许将实际验收过的环境写成支持承诺。当前机器上的功能验证不等于新电脑环境认证。
+
+首次发布优先评估源码 ZIP：它复用现有 CLI、锁文件与 BAT，不额外引入桌面壳或运行时打包。若目标是无需安装 Node.js 的开箱即用包，必须另立打包、升级、依赖许可与环境验收工作，不能直接把开发目录压缩称为便携版。
+
+发布说明至少给出版本/提交、支持环境、安装入口、首次登录方式、空库预期、已知限制、升级/迁移与回退方式。不要把维护者机器上的飞书文章和登录状态作为示例数据一起交付。
+
+### 制品与私有数据边界
+
+- 源码制品从选定的本地提交导出；不要打包整个工作目录。`.gitignore` 防止常规误提交，不能代替 ZIP 内容检查。
+- 源码包保留 `package.json`、`package-lock.json`、默认配置、示例配置、脚本、源码、文档与数据目录占位文件。
+- 排除 `node_modules/`、`.git/`、`library/` 的实际文章、所有 Profile、Secrets、本机配置、日志、缓存、样式覆盖、临时验证数据与 `data/backups/`。
+- 记录制品 SHA-256、来源提交及清单；核对已提交源码不含真实私有文档 URL、Cookie、Token、用户机器路径和业务材料。若要声称完整 Git 历史可公开，另审历史，不能以当前树检查替代。
+- 当前 `package.json` 的 `private: true` 与源码 ZIP 交付不冲突，但没有配置 npm 包发布。未配置 remote 时不猜测发布仓库，不自动增加远程地址或推送。
+
+### 新用户、新电脑的必过路径
+
+在经授权的干净 Windows 环境或隔离虚拟机，用实际候选 ZIP 执行 README；不得复用维护者的 `node_modules`、全局模块、配置、归档或 Profile。
+
+1. 从源码 ZIP 解压，安装声明版本的 Node.js/npm 和抓取所需 Chrome；首次 `npm.cmd ci` 成功，锁文件不变。不能用已安装依赖的回归代替这个步骤。
+2. 无本机配置、空资料库时启动，首页 HTTP 200 且没有维护者文章；启动/重启/状态/打开/停止流程与后台日志一致。
+3. 覆盖普通、中文、含空格的可写安装路径；Node/Chrome/依赖缺失时有可执行的处理方式；4173 被无关进程占用时不误杀；声明自定义端口支持时，CLI 与服务管理入口一致。
+4. 专用 Profile 首次登录后按提示重跑 capture，测试无权限账号与媒体确认分支；一篇获授权、可公开用于测试的文章完整归档后可刷新进入原文。保留原始文件、记录失败媒体，不强制所有文章带 Explain。
+5. 安装与归档完成后断网/退出飞书，验证首页、原文、本地图片、视频播放与 Range；有 ready 章节的 Explain 再验证连续导航、复制/展开和窄屏阅读。使用独立测试环境断网，不影响维护者当前网络或服务。
+6. 将完整文章目录迁入第二套无 Profile 的安装，确认相对资源与派生章节仍可读；继续抓取需要该电脑重新登录。更新前备份资料库、本机配置，回退源码时保留这些私有数据。
+
+Reader 自动回归仍按 `AGENTS.md` 执行；在本工作区设置 `FEISHU_NOTES_VERIFY_KEEP_FIXTURE=1`，保留临时 fixture，不进行递归删除。自动布局回归、复用依赖的隔离运行、真实新电脑安装应分别记录结果。
+
+### 2026-10-08 收尾审查的已知发布缺口
+
+- `service.bat` 的 `Start-Process -ArgumentList` 未保护入口路径中的空格，等价参数探针已复现 `MODULE_NOT_FOUND`；README 暂提供无空格路径和前台 CLI 的绕行方式，正式新用户发布前应修复并验收 BAT。
+- BAT 固定管理 4173，而 CLI 可读配置或 `--port`；当前不能声称 BAT 支持自定义端口。README 已注明使用前台 CLI 的限制。
+- `init:explain` 草稿生成器仍包含旧“讲解版”措辞；作者将草稿变为 ready 前应统一公开名称。后续应同步生成器与规范，避免新资料沿用旧措辞。
+- 当前依赖有锁文件，但 `package.json` 未声明 Node engines；安装说明已写明实际依赖下限和本机基线，后续可评估补充机器可校验的版本约束。
+- 尚无仓库许可证文件、正式 Release 制品流程或新电脑从零安装的通过记录；发布仓库、交付形式和许可选择仍待确定。
+
+这些是本次审查时点的状态；修复后应更新对应记录与验证证据，不能仅凭文档补齐宣布 READY。正式安装依赖、改发布相关实现、设置远程、打 Tag、推送或发布 Release 均按用户的明确授权执行。

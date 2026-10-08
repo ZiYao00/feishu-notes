@@ -1,8 +1,8 @@
-# Explain / Learning Workflow
+# Explain / Source Deconstruction Workflow
 
 ## Purpose
 
-`feishu-notes` keeps the original Feishu archive as the source of truth. Optional learning content lives beside the archive as derived knowledge under:
+`feishu-notes` keeps the original Feishu archive as the source of truth. Optional source deconstruction lives beside the archive as derived content under:
 
 ```text
 library/<article>/
@@ -219,7 +219,7 @@ Quality gates:
 
 - A chapter should not merely be an easier rewrite of the source report.
 - When the source already has a strong analytical sequence, preserve it. When the source is a live-note/chat-style fragment stream, the deconstruction may reorganize it by concept, trade-off and decision path; keep the canonical archive unchanged and distinguish source claims from interpretation.
-- Do not flatten every relationship into vertical prose. Parallel, causal, comparative, statistical, categorical and procedural information should look different.
+- Make relationships explicit through semantic structure: prose for argument, lists for independent records, tables for repeated fields and genuine flows for sequences. Different relationships do not require different decorative containers.
 - Keep source facts, source/marketing claims, project interpretation and independently verified external facts distinguishable.
 - Evidence supports an analytical conclusion; the existence or order of Evidence Cases must not dictate the chapter outline.
 - Do not transplant unverified medical, safety, performance or regulatory claims into a new context merely because the source used them.
@@ -232,22 +232,51 @@ Quality gates:
 
 Public chapter Markdown may use a small controlled directive set when plain Markdown would hide the relationship between pieces of information:
 
-- `:::hero` — compact chapter orientation or core framing;
-- `:::split` — two-sided interpretation such as source vs learner view;
-- `:::metrics` — a small group of headline numbers with labels and notes;
+- `:::hero` — optional compact framing when an ordinary introduction is insufficient; do not repeat the article or chapter title;
+- `:::split` — a short two-sided interpretation such as source claim vs deconstruction judgment, only when side-by-side reading adds value;
+- `:::metrics` — a small group of analytical headline numbers with labels and evidence boundaries; archive inventories belong in ordinary prose unless the counts support a conclusion;
 - `:::flow` — causal, temporal or procedural sequence;
-- `:::compare` — row-based A/B or current/future comparison;
-- `:::cards` — parallel categories, personas, scenes or options;
+- `:::compare` — row-based A/B or current/future comparison, rendered as a semantic table through the existing Reader AutoFit / Clamp and narrow-screen labeled-record behavior;
+- `:::cards` — short independently selectable options or objects that benefit from card scanning; classification names alone do not justify cards, and long descriptions belong in lists or tables;
 - `:::case` — one reusable case record with title, meta, repeated tags, summary, optional archive-local image/video, repeated `analysis:` / `anatomy:` / `constraint:` fields and an evidence/boundary note. For Prompt Library, `prompt: true` marks the immediately following fenced code block as the complete Prompt for this Case; the Viewer moves that Prompt inside the same Case and removes its independent card border;
 - `:::takeaway` — durable summary or boundary that should stand apart from prose.
 
-Use these blocks semantically, not decoratively. A page should not add badges, eyebrow labels, color blocks or oversized headings unless they carry information. Keep the visual hierarchy compact enough for long desktop study sessions. Ordinary prose remains ordinary Markdown.
+Use these blocks semantically, not decoratively. A page should not add badges, eyebrow labels, color blocks or oversized headings unless they carry information. Keep the visual hierarchy quiet enough for sustained reading and reference lookup. Ordinary prose remains ordinary Markdown.
 
-Numeric hierarchy is semantic rather than automatic. Enlarge numbers only when they carry data, stage, order, time, ratio, ranking or comparison meaning; ordinary years, ids and incidental numbers should stay at body size. Use three approximate levels on desktop: headline metrics about 28–36px, emphasized numbers about 20–24px, and comparison/table numbers about 16–18px. Numeric values should use tabular figures where practical so percentages and counts align cleanly.
+Continuous reading is the default public Explain task. Use ordinary paragraphs for argument and interpretation, single-column lists for long independent records, and light tables when repeated fields need comparison. Do not choose a card merely because a record has a name. Preserve source facts, interpretation labels, applicability limits and unresolved statistical boundaries when merging repeated introductions or summaries. Use a compact chapter introduction and at most one chapter-end summary when it adds a durable conclusion; do not require Hero / Split / Takeaway blocks in every chapter or restate the same conclusion in each container.
+
+Main explanatory copy must retain body-level readability; metadata should not dominate it. Keep genuine temporal, procedural and causal flows, but describe combinations and parallel variants as combinations and parallel variants rather than forcing them into an arrow sequence. Existing directives remain supported, including functional Case and Prompt containers. Explain styling is scoped to the public chapter reader and must not change Original Reader modes or the one-container Prompt Case contract.
+
+Numeric hierarchy is semantic rather than automatic. Headline Metrics and Flow steps explicitly identify important values or sequence markers; ordinary card metadata stays at label size even when it contains a percentage, year or duration. Compare uses the existing table value classification instead of enlarging an entire cell because a sentence contains a number. On desktop, headline metrics are about 28–36px, sequence markers about 24–28px, and comparison values remain near body size. Use tabular figures where practical. Preserve denominators, overlapping categories and sample / extrapolation distinctions; do not normalize source values or draw mutually exclusive share charts when the source has not established mutually exclusive categories.
 
 `:::flow` is a continuous sequence, not a row of unrelated cards. On desktop, 2–5 steps should read as one connected horizontal track with a strong step number, compact title and short explanation. A 6-step flow should split into two connected 3-step tracks rather than six narrow cards. On narrow layouts, flow steps become a vertical timeline. Keep flow copy concise enough that the skeleton is visible at a glance; move deeper explanation outside the flow when necessary.
 
 Directive values use simple `key: value` fields. Repeated fields such as `card:`, `step:`, `metric:`, `row:`, `tag:`, `analysis:`, `anatomy:`, `constraint:` and `item:` build repeated visual items. `:::case` media paths must resolve to archived `assets/images/sha256-...` or `assets/videos/sha256-...` files; arbitrary external media is not accepted. A video and Prompt must remain separate cases when the source does not explicitly establish their relationship. Prompt Library uses exactly one outer Case rectangle per case; nested bordered cards are prohibited. The Viewer sanitizes the resulting HTML; do not use the directive system to inject arbitrary markup or scripts.
+
+## Reading tasks and component selection
+
+One article may mix two reading tasks. Explanatory and decision chapters should support sustained reading through prose, light tables and meaningful sequences. Video and Prompt libraries should support scanning, inspection and reuse through functional Case containers. Do not flatten functional media/Prompt cases merely to reduce the card count, and do not apply the complete-library exception to explanatory chapters.
+
+| Information task | Default presentation | Keep a visual component when |
+| --- | --- | --- |
+| Argument, interpretation or applicability boundary | Ordinary paragraphs | A distinct boundary needs one restrained callout |
+| Long independent records or classification explanations | Single-column list | Short independent options require selection or scanning |
+| Repeated fields, routes or compatibility conditions | Light Markdown table with meaningful column names | A genuine A/B comparison fits the Compare schema |
+| Temporal, causal or procedural sequence | Short numbered list or Flow | Connected steps reveal the actual sequence |
+| Counts of archived blocks, media or prompts | Ordinary inventory sentence | A number materially supports an analytical conclusion |
+| Video evidence or complete Prompt case | One functional Case with local media or complete code | Playback, copying, expansion and the case boundary serve reuse |
+
+Compare currently has three fields per row: `dimension | left | right`, with the first column headed “维度”. A two-column source/interpretation mapping or a route/role/explanation table should use an ordinary Markdown table with the correct headers. Check that every row's field count and meaning match its headers; do not pad an ill-fitting comparison with empty cells or shift content under an unrelated label.
+
+Case summary, analysis, structure and constraints are explanatory copy, not metadata: keep them near body size (currently 16px). Source ids, character counts and tags remain subordinate labels. Prompt Anatomy describes structural parts; it must not receive automatic sequence arrows. Use Flow only for an actual temporal, causal or procedural relation. Preserve one outer Case container and the embedded Prompt's copy/expand actions.
+
+Place shared library descriptions and evidence boundaries once in the chapter introduction; retain case-specific caveats and enough per-case status to avoid false media/Prompt binding. Keep public copy about the source and its meaning rather than renderer details such as the number of rectangles or borders. Preserve full Prompt code, media identity, source order and all material evidence when simplifying surrounding text.
+
+## Spacing and review acceptance
+
+Original Reader and public Explain use the shared `--reader-section-gap` token, currently a 60px trial value, for independent headings, tables, media, code and semantic blocks. This is section-level whitespace: ordinary paragraphs, list items, table cells and the inside of a functional Case keep their tighter reading rhythm. Do not apply 60px to every nested element, and do not double a section gap by adding the same margin to its wrapper and child. Chapter boundaries may retain their distinct separation.
+
+Review the active, ready chapter files selected by the manifest. After content changes, verify that source facts, chapter/subsection headings and order, compatibility matrix cells, media references and full Prompt code remain intact. After shared rendering or CSS changes, run the Reader regression, inspect desktop and narrow-screen light/dark layouts, test anchors/ScrollSpy and copy/expand/playback, and regress a neighboring Original Reader and Explain article. Fewer cards or a shorter page is not acceptance by itself: explanatory copy must be readable, comparative fields must align, and reusable evidence must remain accessible. The Viewer/service checks in `AGENTS.md` remain required.
 
 ## Rollout rule
 

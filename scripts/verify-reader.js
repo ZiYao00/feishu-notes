@@ -867,6 +867,14 @@ async function main() {
     'row: 曝光 | 30万 | 100万',
     ':::',
     '',
+    ':::compare',
+    'title: 含数字的解释',
+    'left-label: 原文口径',
+    'right-label: 解释边界',
+    'row: 品牌资产 | 医院出身 / 90 年 / 英国是原文使用的信任表达。 | 含年份的解释应保持正文层级，不是核心数值。',
+    'row: 功效口径 | 99.99% 是源材料中的营销声明，不能直接扩张结论。 | 第3秒出现包装不代表对功效进行了独立验证。',
+    ':::',
+    '',
     ':::cards',
     'title: 分类',
     'card: 卡片A | 约 88% | 数字标签',
@@ -958,10 +966,14 @@ async function main() {
     assert.strictEqual(await page.locator('.learning-flow-step').count(), 6);
     assert.strictEqual(await page.locator('.learning-flow-stack').count(), 1);
     assert.strictEqual(await page.locator('.learning-flow-turn').count(), 1);
-    assert.strictEqual(await page.locator('.learning-compare-row').count(), 1);
-    assert.strictEqual(await page.locator('.learning-compare-row .is-numeric').count(), 2);
+    assert.strictEqual(await page.locator('.learning-compare-row').count(), 3);
+    assert.strictEqual(await page.locator('.learning-compare table.reader-smart-table').count(), 2);
+    assert.strictEqual(await page.locator('.learning-compare th[scope="col"]').count(), 6);
+    assert.strictEqual(await page.locator('.learning-compare th[scope="row"]').count(), 3);
+    assert.strictEqual(await page.locator('.learning-compare').nth(0).locator('tbody td.reader-col-numeric').count(), 2);
+    assert.strictEqual(await page.locator('.learning-compare').nth(1).locator('tbody .reader-col-numeric,tbody .reader-col-percent,.is-numeric').count(), 0);
     assert.strictEqual(await page.locator('.learning-card').count(), 2);
-    assert.strictEqual(await page.locator('.learning-card-meta.is-numeric').count(), 1);
+    assert.strictEqual(await page.locator('.learning-card-meta.is-numeric').count(), 0);
     assert.strictEqual(await page.locator('.learning-takeaway').count(), 1);
     assert.strictEqual(await page.locator('.learning-case').count(), 1);
     assert.strictEqual(await page.locator('.learning-case--prompt').count(), 1);
@@ -1008,13 +1020,25 @@ async function main() {
     const learningTypeScale = await page.evaluate(() => ({
       metric: parseFloat(getComputedStyle(document.querySelector('.learning-metric strong')).fontSize),
       flow: parseFloat(getComputedStyle(document.querySelector('.learning-flow-number')).fontSize),
-      cardNumeric: parseFloat(getComputedStyle(document.querySelector('.learning-card-meta.is-numeric')).fontSize),
-      compareNumeric: parseFloat(getComputedStyle(document.querySelector('.learning-compare-row .is-numeric')).fontSize),
+      cardMeta: parseFloat(getComputedStyle(document.querySelector('.learning-card-meta')).fontSize),
+      cardBody: parseFloat(getComputedStyle(document.querySelector('.learning-card p')).fontSize),
+      compareProse: parseFloat(getComputedStyle(document.querySelectorAll('.learning-compare')[1].querySelector('tbody td')).fontSize),
+      caseSummary: parseFloat(getComputedStyle(document.querySelector('.learning-case-summary')).fontSize),
+      caseAnalysis: parseFloat(getComputedStyle(document.querySelector('.learning-case-analysis li')).fontSize),
+      caseMeta: parseFloat(getComputedStyle(document.querySelector('.learning-case-meta')).fontSize),
+      caseAnatomyMarker: getComputedStyle(document.querySelector('.learning-case-anatomy li'), '::after').content,
+      caseAnatomyList: getComputedStyle(document.querySelector('.learning-case-anatomy ul')).listStyleType,
     }));
     assert.ok(learningTypeScale.metric >= 28);
     assert.ok(learningTypeScale.flow >= 26);
-    assert.ok(learningTypeScale.cardNumeric >= 20);
-    assert.ok(learningTypeScale.compareNumeric >= 16);
+    assert.ok(learningTypeScale.cardBody >= 16);
+    assert.ok(learningTypeScale.cardMeta < learningTypeScale.cardBody);
+    assert.strictEqual(learningTypeScale.compareProse, 16);
+    assert.strictEqual(learningTypeScale.caseSummary, 16);
+    assert.strictEqual(learningTypeScale.caseAnalysis, 16);
+    assert.ok(learningTypeScale.caseMeta < learningTypeScale.caseAnalysis);
+    assert.strictEqual(learningTypeScale.caseAnatomyMarker, 'none');
+    assert.strictEqual(learningTypeScale.caseAnatomyList, 'disc');
     assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.strictEqual(await page.locator('[data-theme-toggle]').count(), 1);
     const learningPromptToggle = page.locator('.reader-prompt-toggle').first();
@@ -1061,7 +1085,7 @@ async function main() {
     assert.strictEqual(chapterScroll.hash, '#chapter-01-system');
     assert.strictEqual(chapterScroll.sentinel, 17);
     assert.strictEqual(chapterScroll.sections, 2);
-    assert.strictEqual(chapterScroll.tables, 1);
+    assert.strictEqual(chapterScroll.tables, 3);
     assert.ok(chapterScroll.targetTop >= chapterScroll.topbar + 8);
     assert.ok(chapterScroll.targetTop <= chapterScroll.topbar + 36, JSON.stringify(chapterScroll));
     assert.ok(chapterScroll.activeHref.endsWith('#chapter-01-system'));
@@ -1124,6 +1148,42 @@ async function main() {
     assert.strictEqual(chapterMobile.sentinel, 31);
     assert.ok(chapterMobile.targetTop >= chapterMobile.offset + 8);
     assert.ok(chapterMobile.targetTop <= chapterMobile.offset + 36);
+
+    const compareMobile = await page.locator('.learning-compare').nth(1).evaluate(element => {
+      const wrap = element.querySelector('.reader-table-wrap');
+      const row = element.querySelector('tbody tr');
+      const cells = [...row.cells];
+      return {
+        overflow: wrap.scrollWidth > wrap.clientWidth + 1,
+        labels: cells.map(cell => cell.dataset.label),
+        cellColumns: cells.map(cell => getComputedStyle(cell).gridTemplateColumns.split(' ').length),
+        text: row.textContent,
+      };
+    });
+    assert.strictEqual(compareMobile.overflow, false);
+    assert.deepStrictEqual(compareMobile.labels, ['维度', '原文口径', '解释边界']);
+    assert.ok(compareMobile.cellColumns.every(count => count === 1));
+    assert.ok(compareMobile.text.includes('90 年') && compareMobile.text.includes('正文层级'));
+    await page.locator('[data-theme-toggle]').click();
+    const explainDark = await page.locator('.learning-compare').nth(1).evaluate(element => ({
+      theme: document.documentElement.dataset.theme,
+      cellColor: getComputedStyle(element.querySelector('tbody td')).color,
+      textColor: getComputedStyle(document.querySelector('.reader-block--text p')).color,
+      shadow: getComputedStyle(element.querySelector('tbody tr')).boxShadow,
+    }));
+    assert.strictEqual(explainDark.theme, 'dark');
+    assert.strictEqual(explainDark.cellColor, explainDark.textColor);
+    assert.strictEqual(explainDark.shadow, 'none');
+    const caseDark = await page.locator('.learning-case--prompt').evaluate(element => ({
+      analysisSize: parseFloat(getComputedStyle(element.querySelector('.learning-case-analysis li')).fontSize),
+      analysisColor: getComputedStyle(element.querySelector('.learning-case-analysis li')).color,
+      textColor: getComputedStyle(document.querySelector('.reader-block--text p')).color,
+      overflow: element.scrollWidth > element.clientWidth + 1,
+    }));
+    assert.strictEqual(caseDark.analysisSize, 16);
+    assert.strictEqual(caseDark.analysisColor, caseDark.textColor);
+    assert.strictEqual(caseDark.overflow, false);
+    await page.locator('[data-theme-toggle]').click();
 
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.addInitScript(() => {
@@ -1382,16 +1442,30 @@ async function main() {
     assert.ok(keyboardWidth > resetWidth);
     await page.keyboard.press('Home');
 
-    const mainLeftBeforeCollapse = await page.evaluate(() => Math.round(document.querySelector('.reader-main').getBoundingClientRect().left));
+    const beforeCollapse = await page.evaluate(() => ({
+      mainLeft: Math.round(document.querySelector('.reader-main').getBoundingClientRect().left),
+      mainWidth: document.querySelector('.reader-main').getBoundingClientRect().width,
+      height: document.documentElement.scrollHeight,
+    }));
     await page.click('[data-toc-collapse]');
     await page.waitForTimeout(80);
     const collapsed = await page.evaluate(() => ({
       bodyCollapsed: document.body.classList.contains('toc-collapsed'),
       mainLeft: Math.round(document.querySelector('.reader-main').getBoundingClientRect().left),
+      mainWidth: document.querySelector('.reader-main').getBoundingClientRect().width,
+      height: document.documentElement.scrollHeight,
+      pageOverflow: document.documentElement.scrollWidth > innerWidth,
     }));
     assert.strictEqual(collapsed.bodyCollapsed, true);
-    assert.ok(collapsed.mainLeft < mainLeftBeforeCollapse);
+    assert.ok(collapsed.mainLeft < beforeCollapse.mainLeft);
+    assert.ok(collapsed.mainWidth > beforeCollapse.mainWidth, JSON.stringify(collapsed));
+    assert.ok(collapsed.height <= beforeCollapse.height * 1.1, JSON.stringify({ beforeCollapse, collapsed }));
+    assert.strictEqual(collapsed.pageOverflow, false);
+    await page.reload({ waitUntil: 'networkidle' });
+    assert.strictEqual(await page.locator('body').evaluate(element => element.classList.contains('toc-collapsed')), true);
+    assert.ok(await page.locator('.reader-main').evaluate(element => element.getBoundingClientRect().width) > beforeCollapse.mainWidth);
     await page.click('[data-toc-collapse]');
+    assert.ok(Math.abs(await page.locator('.reader-main').evaluate(element => element.getBoundingClientRect().width) - beforeCollapse.mainWidth) < 1);
 
     const standaloneVideo = page.locator('.reader-media--standalone.is-dialog-trigger').first();
     await standaloneVideo.click();

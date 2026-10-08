@@ -115,14 +115,6 @@ function splitDirectiveRow(value, expectedParts) {
   return parts;
 }
 
-function hasLearningNumber(value) {
-  return /(?:^|[^A-Za-z])(?:[<>≈~]?\s*\d[\d,.]*(?:\.\d+)?\s*(?:%|秒|分钟|小时|天|条|万|h|s)?|\d+\s*[–-]\s*\d+\s*(?:秒|分钟|小时|天|h|s)?)(?:$|[^A-Za-z])/i.test(String(value || ''));
-}
-
-function learningValueClass(value, baseClass) {
-  return baseClass + (hasLearningNumber(value) ? ' is-numeric' : '');
-}
-
 function safeLearningAsset(value, kind) {
   const candidate = String(value || '').trim().replace(/\\/g, '/');
   const pattern = kind === 'video'
@@ -202,21 +194,22 @@ function renderLearningDirective(type, fields) {
     const rightLabel = renderInline(firstField(fields, 'right-label') || 'B');
     const rows = fieldList(fields, 'row').map(value => {
       const [dimension, left, right] = splitDirectiveRow(value, 3);
-      return '<div class="learning-compare-row"><div class="' + learningValueClass(dimension, 'learning-compare-key') + '">' + renderInline(dimension) + '</div>' +
-        '<div class="' + learningValueClass(left, 'learning-compare-cell') + '">' + renderInline(left) + '</div>' +
-        '<div class="' + learningValueClass(right, 'learning-compare-cell') + '">' + renderInline(right) + '</div></div>';
+      return '<tr class="learning-compare-row"><th scope="row">' + renderInline(dimension) + '</th>' +
+        '<td class="learning-compare-cell">' + renderInline(left) + '</td>' +
+        '<td class="learning-compare-cell">' + renderInline(right) + '</td></tr>';
     }).join('');
     return '<section class="learning-block learning-compare">' +
       (title ? '<div class="learning-block-title">' + title + '</div>' : '') +
-      '<div class="learning-compare-head"><span></span><strong>' + leftLabel + '</strong><strong>' + rightLabel + '</strong></div>' +
-      rows + '</section>';
+      '<div class="reader-block reader-block--table"><div class="reader-table-wrap"><table>' +
+      '<thead><tr><th scope="col">维度</th><th scope="col">' + leftLabel + '</th><th scope="col">' + rightLabel + '</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div></div></section>';
   }
 
   if (type === 'cards') {
     const cards = fieldList(fields, 'card').map(value => {
       const [heading, meta, detail] = splitDirectiveRow(value, 3);
       return '<div class="learning-card"><strong>' + renderInline(heading) + '</strong>' +
-        (meta ? '<span class="' + learningValueClass(meta, 'learning-card-meta') + '">' + renderInline(meta) + '</span>' : '') +
+        (meta ? '<span class="learning-card-meta">' + renderInline(meta) + '</span>' : '') +
         (detail ? '<p>' + renderInline(detail) + '</p>' : '') + '</div>';
     }).join('');
     return '<section class="learning-block learning-cards">' +
@@ -446,6 +439,7 @@ function renderMarkdown(markdown, options = {}) {
     allowedAttributes: {
       '*': ['class', 'id', 'data-*'],
       code: ['class'],
+      th: ['scope'],
       video: ['class', 'src', 'controls', 'playsinline', 'preload', 'poster', 'width', 'height', 'data-*'],
       img: ['class', 'src', 'alt', 'width', 'height', 'data-*'],
       source: ['src', 'type']
