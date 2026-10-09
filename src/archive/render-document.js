@@ -1,6 +1,7 @@
 const sanitizeHtml = require('sanitize-html');
 const TurndownService = require('turndown');
 const { gfm } = require('turndown-plugin-gfm');
+const { inferAttachments } = require('../feishu/attachment-inventory');
 
 function cleanText(value = '') {
   return String(value)
@@ -21,20 +22,27 @@ function mediaTarget(item) {
     : item.url;
 }
 
-function findMedia(url, inventory) {
-  return inventory.find(item => item.url === url) || null;
+function findMedia(entry, inventory) {
+  const identity = entry.identity || null;
+  if (identity) {
+    const exact=inventory.find(item => item.identity === identity);
+    if (exact) return exact;
+  }
+  const matches=inventory.filter(item => item.url === entry.url);
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function blockMediaEntries(block, inventory) {
   const entries = [...(block.media || [])];
-  const seen = new Set(entries.map(entry => entry.url).filter(Boolean));
+  const seen = new Set(entries.map(entry => entry.identity || entry.url).filter(Boolean));
   const blockId = String(block.id);
 
   for (const item of inventory) {
     if (!(item.blockIds || []).map(String).includes(blockId)) continue;
-    if (!item.url || seen.has(item.url)) continue;
-    seen.add(item.url);
+    if (!item.url || seen.has(item.identity || item.url)) continue;
+    seen.add(item.identity || item.url);
     entries.push({
+      identity: item.identity || null,
       tag: item.kind === 'video' ? 'video' : 'img',
       url: item.url,
       width: item.width ?? null,
@@ -57,6 +65,14 @@ function orientationFor(item) {
 }
 
 function rewriteMedia(html, inventory) {
+  const targets=new Map();
+  for(const item of inventory){
+    if(!item.url)continue;
+    const destination=item.status==='downloaded'?item.localRelativePath:item.url;
+    if(targets.has(item.url)&&targets.get(item.url)!==destination)
+      throw Error('MEDIA_URL_AMBIGUOUS: repeated URL points to conflicting image occurrences');
+    targets.set(item.url,destination);
+  }
   let output = html;
   for (const item of inventory) {
     const target = mediaTarget(item);
@@ -127,6 +143,10 @@ function createTurndown() {
   return service;
 }
 
+function normalizeHeading(value) {
+  return cleanText(value).replace(/\s*\r?\n\s*/g, ' ').replace(/[\t ]{2,}/g, ' ').trim();
+}
+
 function headingLevel(className) {
   const match = String(className).match(/docx-heading([1-6])-block/);
   return match ? Math.min(6, Number(match[1]) + 1) : null;
@@ -137,12 +157,18 @@ function markdownMedia(mediaEntries, inventory, compact = false) {
   const seenSources = new Set();
 
   for (const entry of mediaEntries || []) {
-    if (seenSources.has(entry.url)) continue;
-    seenSources.add(entry.url);
+    const logicalKey=entry.identity || entry.url;
+    if (seenSources.has(logicalKey)) continue;
+    seenSources.add(logicalKey);
 
-    const item = findMedia(entry.url, inventory);
+    const item = findMedia(entry, inventory);
     if (!item) continue;
     const target = mediaTarget(item);
+    if (item.status !== 'downloaded') {
+      const label = item.kind === 'video' ? '视频' : '图片';
+      parts.push(compact ? `[${label}未保存]` : `> ${label}暂未离线保存（${item.status || 'pending'}）`);
+      continue;
+    }
 
     if (item.kind === 'video') {
       parts.push(compact ? `[视频](${target})` : `<video controls src="${target}"></video>`);
@@ -171,16 +197,24 @@ function htmlMedia(mediaEntries, inventory, context = 'standalone') {
   const seenSources = new Set();
 
   for (const entry of mediaEntries || []) {
-    if (seenSources.has(entry.url)) continue;
-    seenSources.add(entry.url);
+    const logicalKey=entry.identity || entry.url;
+    if (seenSources.has(logicalKey)) continue;
+    seenSources.add(logicalKey);
 
-    const item = findMedia(entry.url, inventory);
+    const item = findMedia(entry, inventory);
     if (!item) continue;
 
     const target = mediaTarget(item);
     const orientation = orientationFor(item);
     const attrs = mediaDataAttributes(item, context);
     const contextClass = context === 'table-cell' ? 'reader-media--table-cell' : 'reader-media--standalone';
+    if (item.status !== 'downloaded') {
+      const label = item.kind === 'video' ? '视频' : '图片';
+      parts.push(`<figure class="reader-media reader-media--unavailable ${contextClass}" ${attrs}>` +
+        `<div class="reader-embed-fallback"><strong>${label}暂未离线保存</strong>` +
+        `<span>状态：${escapeHtml(item.status || 'pending')}。原始出现位置已保留。</span></div></figure>`);
+      continue;
+    }
 
     if (item.kind === 'video') {
       const intrinsic = [
@@ -280,13 +314,11 @@ function classifyBlock(block, level, isMediaShell) {
 function renderBlock(block, inventory, turndown) {
   const normalizedText = cleanText(block.text);
   const effectiveMedia = blockMediaEntries(block, inventory);
-  if (normalizedText === '附件不支持打印') {
-    return { markdown: '', html: '', type: 'empty' };
-  }
-
+  // Feishu's '附件不支持打印' is a signal of an unsupported attachment,
+  // not permission to delete the corresponding source block.
   const level = headingLevel(block.className);
   if (level) {
-    const value = cleanText(block.text);
+    const value = normalizeHeading(block.text);
     const anchor = `block-${escapeHtml(block.id)}`;
     const attachedMarkdown = markdownMedia(effectiveMedia, inventory, false);
     const attachedHtml = htmlMedia(effectiveMedia, inventory, 'standalone').join('');
@@ -353,10 +385,10 @@ function renderBlock(block, inventory, turndown) {
   }
 
   const blockMedia = markdownMedia(effectiveMedia, inventory, false);
-  const hasVideo = effectiveMedia.some(entry => findMedia(entry.url, inventory)?.kind === 'video');
-  const hasImage = effectiveMedia.some(entry => findMedia(entry.url, inventory)?.kind === 'image');
+  const hasVideo = effectiveMedia.some(entry => findMedia(entry, inventory)?.kind === 'video');
+  const hasImage = effectiveMedia.some(entry => findMedia(entry, inventory)?.kind === 'image');
   const isMediaShell =
-    /docx-(file|view|image)-block/.test(block.className) ||
+    (/docx-(file|view|image)-block/.test(block.className) && blockMedia.length > 0) ||
     (hasImage && !normalizedText && /<img\b/i.test(block.html || '')) ||
     (hasVideo && /xgplayer|preview-type-video/.test(block.html));
 
@@ -365,6 +397,23 @@ function renderBlock(block, inventory, turndown) {
       markdown: blockMedia.join('\n\n'),
       html: htmlMedia(effectiveMedia, inventory, 'standalone').join('\n'),
       type: 'media',
+    };
+  }
+
+  if (/docx-(file|view|embed)-block/.test(block.className) || (block.attachments || []).length) {
+    const attachments = Array.isArray(block.attachments) ? block.attachments : [];
+    const display = attachments.length ? attachments : [{ name: normalizedText, status: 'unresolved' }];
+    const details = display.map(item => {
+      const label = cleanText(item.name || normalizedText || '飞书附件');
+      const url = /^https:\/\//i.test(item.url || '') ? item.url : null;
+      return {label, url, sizeText: item.sizeText || null, status: item.status || 'unresolved'};
+    });
+    const text = details.map(item => `- ${item.label}${item.sizeText ? `（${item.sizeText}）` : ''}${item.url ? `（[查看来源](${item.url})）` : ''}`).join('\n');
+    const html = details.map(item => `<li>${escapeHtml(item.label)}${item.sizeText ? ` <small>${escapeHtml(item.sizeText)}</small>` : ''}${item.url ? ` <a href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">查看来源</a>` : ''}</li>`).join('');
+    return {
+      markdown: `> 飞书附件暂未离线保存（需人工确认下载权限）\n\n${text}`,
+      html: `<div class="reader-embed-fallback reader-attachment-fallback" data-embed-kind="attachment"><strong>飞书附件未离线保存</strong><span>当前归档未验证附件下载权限，已保留来源记录。</span><ul>${html}</ul></div>`,
+      type: 'embed', unresolved: true, attachmentCount: details.length,
     };
   }
 
@@ -460,13 +509,35 @@ function renderDocument({ document, inventory }) {
   const turndown = createTurndown();
   const htmlBlocks = [];
   const markdownBlocks = [];
+  const audit = { totalBlocks: document.blocks.length, rendered: 0, emptyVerified: 0, unsupportedVisible: 0, failed: 0, failures: [], blockResults: [], attachmentCandidates: [] };
 
-  for (const block of document.blocks) {
-    const rendered = renderBlock(block, inventory, turndown);
+  for (const sourceBlock of document.blocks) {
+    const block = { ...sourceBlock, attachments: inferAttachments(sourceBlock) };
+    let rendered;
+    try {rendered = renderBlock(block, inventory, turndown)}
+    catch(error){
+      const label=cleanText(block.text)||'此原文块存在无法确认的媒体对应关系';
+      rendered={type:'fallback',failed:true,
+        markdown:`> 原文转换待复核（Block ${block.id}）：${label}`,
+        html:`<div class="reader-embed-fallback"><strong>原文转换待复核</strong><span>${escapeHtml(label)}</span></div>`,
+        error:String(error.message||error).slice(0,150)};
+    }
+    const hasOutput = Boolean(rendered.markdown || rendered.html);
+    const sourceHasContent = Boolean(cleanText(block.text) || (block.media || []).length || (block.attachments || []).length || block.table || /docx-(file|view|sheet|embed|image)-block/.test(block.className));
+    const status = rendered.failed ? 'failed' : rendered.unresolved ? 'unsupported_visible' : hasOutput ? 'rendered' : sourceHasContent ? 'failed' : 'empty_verified';
+    const record = { blockId: String(block.id), status, type: rendered.type };
+    audit.blockResults.push(record);
+    if (status === 'rendered') audit.rendered++;
+    if (status === 'unsupported_visible') audit.unsupportedVisible++;
+    if (status === 'empty_verified') audit.emptyVerified++;
+    if (status === 'failed') { audit.failed++; audit.failures.push({ blockId: String(block.id), className: block.className, reason:rendered.error||'missing_content' }); }
+    for (const attachment of block.attachments || []) {
+      audit.attachmentCandidates.push({ blockId: String(block.id), name: attachment.name || '', url: attachment.url || null, sizeBytes: attachment.sizeBytes ?? null, sizeText: attachment.sizeText || null, status: attachment.status || 'unresolved' });
+    }
     if (rendered.markdown) markdownBlocks.push(rendered.markdown);
     if (rendered.html) {
       htmlBlocks.push(
-        `<section class="reader-block reader-block--${rendered.type}" data-block-id="${escapeHtml(block.id)}">${rendered.html}</section>`
+        `<section class="reader-block reader-block--${rendered.type}" data-block-id="${escapeHtml(block.id)}"${block.recordId?` data-record-id="${escapeHtml(block.recordId)}"`:''}>${rendered.html}</section>`
       );
     }
   }
@@ -494,7 +565,7 @@ ${htmlBlocks.join('\n')}
 </body>
 </html>`;
 
-  return { markdown, html };
+  return { markdown, html, audit };
 }
 
 function escapeHtml(value) {

@@ -15,7 +15,7 @@
   "mediaLimits": {
     "warnSingleFileMB": 300,
     "warnTotalMB": 1024,
-    "warnFileCount": 40,
+    "warnFileCount": 100,
     "warnUnknownSize": true
   },
   "viewer": {

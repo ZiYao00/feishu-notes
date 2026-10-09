@@ -1,9 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { Readable } = require('stream');
-const { pipeline } = require('stream/promises');
+// Media bytes are transferred only through the shared bounded transport.
 const { renderDocument } = require('./render-document');
+const { evaluateQuality } = require('./quality-gate');
+const {snapshotDocument}=require('./source-snapshot');
+const {verifyMediaAsset,publishStage}=require('./media-service');
+const {publishArchiveFiles}=require('./publish-transaction');
 
 function safeName(value) {
   const cleaned = String(value || 'untitled')
@@ -32,63 +35,28 @@ function findExistingArchive(libraryRoot, documentId) {
   return null;
 }
 
-function chooseArchiveDir(libraryRoot, document) {
+function chooseArchiveDir(libraryRoot, document, agentSafe = false) {
   const existing = findExistingArchive(libraryRoot, document.documentId);
-  if (existing) return existing;
+  if (existing) {
+    throw new Error('ARCHIVE_EXISTS: use reviewed resume or a separate candidate; never implicitly overwrite an existing article.');
+  }
 
   const base = safeName(document.title);
-  let candidate = path.join(libraryRoot, base);
+  const candidate = path.join(libraryRoot, base);
   if (!fs.existsSync(candidate)) return candidate;
 
   const existingManifest = readJson(path.join(candidate, 'archive.json'));
   const interruptedAssets = path.join(candidate, 'assets');
-  if (!existingManifest && fs.existsSync(interruptedAssets)) return candidate;
-
-  const suffix = safeName(document.documentId).slice(0, 8);
-  return path.join(libraryRoot, `${base}--${suffix}`);
-}
-
-async function downloadBlob(page, url, destination) {
-  const payload = await page.evaluate(async source => {
-    const response = await fetch(source);
-    const blob = await response.blob();
-    const buffer = await blob.arrayBuffer();
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const chunk = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunk) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-    }
-    return btoa(binary);
-  }, url);
-  fs.writeFileSync(destination, Buffer.from(payload, 'base64'));
-}
-
-async function requestHeaders(context, page, url) {
-  const browserCookies = await context.cookies(url);
-  const sessionHeader = browserCookies.map(item => `${item.name}=${item.value}`).join('; ');
-  const userAgent = await page.evaluate(() => navigator.userAgent);
-  return {
-    'User-Agent': userAgent,
-    'Referer': page.url(),
-    ...(sessionHeader ? { Cookie: sessionHeader } : {}),
-  };
-}
-
-async function downloadRemote(context, page, url, destination) {
-  const headers = await requestHeaders(context, page, url);
-  const response = await fetch(url, {
-    method: 'GET',
-    headers,
-    redirect: 'follow',
-    signal: AbortSignal.timeout(10 * 60 * 1000),
-  });
-
-  if (!response.ok || !response.body) {
-    throw new Error(`Download failed: HTTP ${response.status}`);
+  if (!agentSafe && !existingManifest && fs.existsSync(interruptedAssets)) {
+    throw new Error('ARCHIVE_INTERRUPTED: existing assets without manifest require manual recovery.');
   }
 
-  await pipeline(Readable.fromWeb(response.body), fs.createWriteStream(destination));
+  const suffix = safeName(document.documentId).slice(0, 8);
+  const alternate = path.join(libraryRoot, `${base}--${suffix}`);
+  if (fs.existsSync(alternate)) {
+    throw new Error('AGENT_ARCHIVE_COLLISION: target folder already exists; no files were overwritten.');
+  }
+  return alternate;
 }
 
 async function hashFile(file) {
@@ -118,7 +86,7 @@ function tryLinkOrCopy(source, destination) {
 function existingMediaFor(item, manifest) {
   const media = Array.isArray(manifest?.media) ? manifest.media : [];
   return media.find(entry => entry.id === item.id) ||
-    media.find(entry => entry.sourceUrl === item.url) ||
+    (item.identity ? media.find(entry => entry.identity === item.identity) : null) ||
     null;
 }
 
@@ -130,6 +98,9 @@ async function materializeMedia({
   existingManifest,
   ownerByHash,
   obsoletePaths,
+  safeMediaTransport = null,
+  transferredBytes = 0,
+  hardBudget = null,
 }) {
   const oldEntry = existingMediaFor(item, existingManifest);
   const candidateRelatives = [...new Set([
@@ -139,9 +110,11 @@ async function materializeMedia({
 
   let sourcePath = null;
   for (const relative of candidateRelatives) {
-    const candidate = path.join(archiveDir, relative);
-    if (isExistingMediaUsable(candidate, item.size)) {
-      sourcePath = candidate;
+    const validated=oldEntry?.contentHash ? await verifyMediaAsset({
+      dir:archiveDir,relative,hash:oldEntry.contentHash,size:oldEntry.actualSize,
+    }) : null;
+    if(validated && (item.size == null || fs.statSync(validated).size === item.size)) {
+      sourcePath=validated;
       break;
     }
   }
@@ -160,36 +133,33 @@ async function materializeMedia({
       `${item.id}-${process.pid}-${Date.now()}${item.extension}`
     );
 
-    if (item.url.startsWith('blob:')) {
-      await downloadBlob(page, item.url, stagingPath);
-    } else if (/^https?:/i.test(item.url)) {
-      await downloadRemote(context, page, item.url, stagingPath);
-    } else {
-      throw new Error('Unsupported media URL scheme.');
-    }
+    if (!safeMediaTransport || !hardBudget)throw new Error('MEDIA_SAFE_TRANSPORT_REQUIRED');
+    if (safeMediaTransport) {
+      if (item.url.startsWith('blob:')) {
+        await safeMediaTransport.streamBlob(item.url, page, stagingPath, transferredBytes, hardBudget, item);
+      } else if (/^https:\/\//i.test(item.url)) {
+        await safeMediaTransport.streamRemote(item.url, context, page, stagingPath, transferredBytes, hardBudget);
+      } else {
+        throw new Error('Only HTTPS or authenticated Blob media can be downloaded safely.');
+      }
+      const header=Buffer.alloc(256);
+      const fd=fs.openSync(stagingPath,'r');
+      try { fs.readSync(fd,header,0,header.length,0); } finally { fs.closeSync(fd); }
+      const ext=safeMediaTransport.extFor(header,item.kind);
+      if (!ext) throw new Error('Invalid or unsupported media bytes; refusing to record a successful asset.');
+      item.extension=ext;
+    } // No legacy unbounded or unauthenticated download fallback.
     sourcePath = stagingPath;
   }
 
-  const actualSize = fs.statSync(sourcePath).size;
-  const contentHash = await hashFile(sourcePath);
+  const physical=await publishStage({dir:archiveDir,stage:sourcePath,kind:item.kind,extension:item.extension});
+  const {actualSize,contentHash}=physical;
   const dedupeKey = `${item.kind}:${contentHash}`;
   const owner = ownerByHash.get(dedupeKey) || null;
-  const kindDir = item.kind === 'video' ? 'videos' : 'images';
-  const canonicalRelativePath = owner?.localRelativePath ||
-    `assets/${kindDir}/sha256-${contentHash}${item.extension}`;
-  const canonicalPath = path.join(archiveDir, canonicalRelativePath);
-
-  if (!fs.existsSync(canonicalPath)) {
-    tryLinkOrCopy(sourcePath, canonicalPath);
-  } else {
-    const canonicalStat = fs.statSync(canonicalPath);
-    if (canonicalStat.size !== actualSize) {
-      const existingHash = await hashFile(canonicalPath);
-      if (existingHash !== contentHash) {
-        throw new Error(`Canonical media hash collision or corruption: ${canonicalRelativePath}`);
-      }
-    }
-  }
+  const canonicalRelativePath=owner?.localRelativePath||physical.localRelativePath;
+  const canonicalPath=path.join(archiveDir,canonicalRelativePath);
+  if(owner && (await hashFile(canonicalPath))!==contentHash)
+    throw new Error('MEDIA_OWNER_HASH_MISMATCH');
 
   if (!owner) {
     ownerByHash.set(dedupeKey, {
@@ -222,9 +192,19 @@ async function downloadMedia({
   page,
   archiveConfig,
   existingManifest,
+  safeMediaTransport = null,
+  mediaLimits = null,
+  maxMediaDownloads = Number.POSITIVE_INFINITY,
 }) {
   const ownerByHash = new Map();
   const obsoletePaths = new Set();
+  let transferredBytes = 0;
+  let attemptedDownloads = 0;
+  const hardBudget = safeMediaTransport ? {
+    singleMax: Number(mediaLimits?.warnSingleFileMB || 300) * 1024 * 1024,
+    totalMax: Number(mediaLimits?.warnTotalMB || 1024) * 1024 * 1024,
+    spentBytes: 0,
+  } : null;
 
   for (const item of inventory) {
     const allowed =
@@ -235,6 +215,12 @@ async function downloadMedia({
       item.status = 'skipped_by_config';
       continue;
     }
+    if (attemptedDownloads >= maxMediaDownloads) {
+      item.status = 'skipped_by_media_limit';
+      item.error = 'This candidate was intentionally limited to the approved media-item count.';
+      continue;
+    }
+    attemptedDownloads++;
 
     try {
       await materializeMedia({
@@ -245,7 +231,11 @@ async function downloadMedia({
         existingManifest,
         ownerByHash,
         obsoletePaths,
+        safeMediaTransport,
+        transferredBytes,
+        hardBudget,
       });
+      if (safeMediaTransport) transferredBytes += item.actualSize || 0;
     } catch (error) {
       item.status = 'failed';
       item.error = error.message;
@@ -255,9 +245,9 @@ async function downloadMedia({
   return { obsoletePaths };
 }
 
-function archiveStatus(inventory, pendingConfirmation = false) {
+function archiveStatus(inventory, pendingConfirmation = false, verifiedComplete = true) {
   if (pendingConfirmation) return 'pending_confirmation';
-  const incomplete = inventory.some(item => item.status !== 'downloaded');
+  const incomplete = !verifiedComplete || inventory.some(item => item.status !== 'downloaded');
   return incomplete ? 'partial' : 'complete';
 }
 
@@ -279,15 +269,20 @@ function storageSummary(inventory) {
   };
 }
 
-function writeArchiveFiles({ archiveDir, document, inventory, policy, pendingConfirmation }) {
+function writeArchiveFiles({ archiveDir, document, inventory, policy, pendingConfirmation, agentSafe = false }) {
   fs.mkdirSync(archiveDir, { recursive: true });
 
-  const status = archiveStatus(inventory, pendingConfirmation);
   const rendered = renderDocument({ document, inventory });
+  const attachments = rendered.audit.attachmentCandidates;
+  const mediaDiagnostics = inventory.diagnostics || [];
+  const quality = evaluateQuality({
+    document, inventory, audit: rendered.audit,
+    diagnostics: mediaDiagnostics, policy, pendingConfirmation,
+  });
+  const status = quality.status;
   const markdownName = `${safeName(document.title)}.md`;
 
-  fs.writeFileSync(path.join(archiveDir, markdownName), rendered.markdown, 'utf8');
-  fs.writeFileSync(path.join(archiveDir, 'article.html'), rendered.html, 'utf8');
+  // Build every authoritative file before publishing through a single gate.
 
   const manifest = {
     version: 2,
@@ -299,11 +294,17 @@ function writeArchiveFiles({ archiveDir, document, inventory, policy, pendingCon
     markdownFile: markdownName,
     htmlFile: 'article.html',
     scan: document.scan || null,
+    sourceFingerprint:snapshotDocument(document).contentFingerprint,
+    sourceSnapshotSchema:2,
     policy,
     embeddedSheets: Array.isArray(document.embeddedSheets) ? document.embeddedSheets : [],
+    attachments,
+    mediaDiagnostics,
+    quality,
     storage: storageSummary(inventory),
     media: inventory.map(item => ({
       id: item.id,
+      identity: item.identity || null,
       kind: item.kind,
       sourceUrl: item.url,
       localRelativePath: item.localRelativePath,
@@ -313,6 +314,7 @@ function writeArchiveFiles({ archiveDir, document, inventory, policy, pendingCon
       status: item.status,
       error: item.error || item.probeError || null,
       blockIds: item.blockIds,
+      recordIds: item.recordIds || [],
       contexts: item.contexts || [],
       width: item.width ?? null,
       height: item.height ?? null,
@@ -322,8 +324,11 @@ function writeArchiveFiles({ archiveDir, document, inventory, policy, pendingCon
     })),
   };
 
-  fs.writeFileSync(path.join(archiveDir, 'archive.json'), JSON.stringify(manifest, null, 2), 'utf8');
-  return { status, markdownName, manifest };
+  const publication=publishArchiveFiles({
+    dir:archiveDir,files:{markdown:markdownName,html:'article.html',manifest:'archive.json'},
+    contents:{markdown:rendered.markdown,html:rendered.html,manifest:JSON.stringify(manifest,null,2)},
+  });
+  return { status, markdownName, manifest, publication };
 }
 
 function cleanupObsoleteMedia({ archiveDir, obsoletePaths, inventory }) {
@@ -355,9 +360,13 @@ async function createArchive({
   archiveConfig,
   libraryRoot,
   confirmLarge = false,
+  agentSafe = false,
+  mediaLimits = null,
+  safeMediaTransport = null,
+  maxMediaDownloads = Number.POSITIVE_INFINITY,
 }) {
   fs.mkdirSync(libraryRoot, { recursive: true });
-  const archiveDir = chooseArchiveDir(libraryRoot, document);
+  const archiveDir = chooseArchiveDir(libraryRoot, document, agentSafe);
   const existingManifest = readJson(path.join(archiveDir, 'archive.json'));
 
   if (policy.warnings.length && !confirmLarge) {
@@ -398,6 +407,7 @@ async function createArchive({
       inventory,
       policy,
       pendingConfirmation: true,
+      agentSafe,
     });
     return { archiveDir, ...result, warningsRequireConfirmation: true };
   }
@@ -409,6 +419,9 @@ async function createArchive({
     page,
     archiveConfig,
     existingManifest,
+    mediaLimits,
+    safeMediaTransport,
+    maxMediaDownloads,
   });
 
   const result = writeArchiveFiles({
@@ -417,12 +430,12 @@ async function createArchive({
     inventory,
     policy,
     pendingConfirmation: false,
+    agentSafe,
   });
 
-  cleanupObsoleteMedia({ archiveDir, obsoletePaths, inventory });
-
-  const preflightPath = path.join(archiveDir, 'preflight.json');
-  if (fs.existsSync(preflightPath)) fs.unlinkSync(preflightPath);
+  // Never remove old media or staging automatically. Publication and resource
+  // retention are independent operations requiring their own authorization.
+  void obsoletePaths;
 
   return { archiveDir, ...result, warningsRequireConfirmation: false };
 }
@@ -431,4 +444,5 @@ module.exports = {
   createArchive,
   safeName,
   storageSummary,
+  archiveStatus,
 };

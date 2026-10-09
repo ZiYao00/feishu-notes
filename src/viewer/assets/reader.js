@@ -997,7 +997,9 @@
         const attachedMedia = [...block.querySelectorAll(':scope > .reader-media--standalone')];
         attachedMedia.forEach(item => media.appendChild(item));
 
-        if (block.classList.contains('reader-block--media')) {
+        // Only discard a shell after all its media have moved into the case.
+        // Pending/unavailable media remain first-class source occurrences.
+        if (block.classList.contains('reader-block--media') && attachedMedia.length > 0) {
           block.remove();
           continue;
         }

@@ -153,6 +153,20 @@ service.bat open
 service.bat start-open
 ```
 
+### Agent 安全保存文章
+
+最新版 V3 还要求排除图片载入时 `.loading-placeholder-wrapper` 产生的重复媒体，同时核验 Reader 案例分组前后媒体数量一致，不能丢掉未下载媒体占位。源码及变更验收需运行 `node scripts/verify-pending-media-reader.js`。已下载的历史媒体可在**隔离预览**中按唯一稳定记录关系与 SHA-256 复用，但最新飞书源文件字节未重新核验时必须保持 `unverified`，不得升级为正式归档。详细规则见 `docs/ARCHIVE-QUALITY-V3.md`。
+
+Agent 首先执行 `node scripts/agent-capture.js inspect "<feishu-url>"`。未归档时可调用 `capture`；已归档且状态为 `pending_confirmation` 或 `partial` 时，只有在确认媒体告警与原文版本后才能执行 `resume`，不能用普通 `capture` 覆盖。默认数量预警已改为 **100 个**（软限制）；单文件 300 MiB、已知合计 1 GiB 的原有预警值保持。即使用户确认未知大小，真实流式下载仍受每文件/总量硬性预算约束。
+
+确认本篇未知体积媒体后可以调用：
+
+```bash
+node scripts/agent-capture.js resume "<feishu-url>" --profile default --confirm-unknown
+```
+
+扫描器必须完成文末与 Block 稳定性验证；正文、Block 或逻辑媒体关系发生变化时禁止自动续采。文件级日志保存在 `data/state/`，按哈希复用完整文件；下载全部成功后备份原 Markdown/HTML/Manifest，再受控更新相对媒体路径与状态，绝不自动删除旧资产。失败/网络中断不等同完整归档。共享采集锁覆盖传统 CLI，残留锁需人工检查，禁止自动清理。Skill 真源为 `skill/feishu-notes/`；Explain 仍遵从最新 `docs/EXPLAIN-WORKFLOW.md`。
+
 ### 保存文章
 
 ```bash
@@ -257,7 +271,7 @@ Tracked files 禁止出现：
 ```text
 单文件 > 300 MB
 已知总量 > 1 GB
-文件数量 > 40
+文件数量 > 100
 存在未知大小
 ```
 
@@ -328,6 +342,18 @@ Feishu Media B ─┘
 重要规则：
 
 > 已存在的 complete 归档，不允许因为之后一次预检触发警告而被覆盖成 pending_confirmation。
+
+## 7.1 来源保真与真实文章验收
+
+**最新 V3 规范：**见 `docs/ARCHIVE-QUALITY-V3.md`。新增 `quality-gate.js` 统一结果、`publish-transaction.js` 事务发布、`media-url-policy.js` 域名验证及下载重试预算。`archive.json` 旧状态仅供兼容，最终成功必须有 Reader QA 绑定三个文件哈希。真实受限文章可经审核进入 `partial_verified`，但发布需独立授权。候选报告必须从现有 Manifest 和磁盘资源实时生成，不能使用过时静态 JSON 数据。
+
+- 新采集保留结构化、可复核的私有 Source Snapshot（优先稳定 `data-record-id`，保留但不依赖临时 `data-block-id`、顺序、正文、子 Block、媒体/附件关系），不把 Cookie 或源文档资料放入 Git/Skill 发布包。
+- `docx-view-block` 中的文件卡应保留文件名、可见体积、来源 Block 以及未下载原因；下载按钮被飞书禁用时不绕过权限，不再输出空白。
+- Callout 内层存在独立虚拟列表（`bear-virtual-renderUnit-placeholder`）：不能仅以整页 Block 数和文末滚动判断完整。使用子节点稳定 `recordId` 汇总滚动片段，只有能证明完整连续顺序时才还原；任何内层缺口一律标记 `callout_incomplete`，不可自动发布。
+- 文字、标题、附件和媒体都有覆盖记录：`rendered` / `empty_verified` / `unsupported_visible` / `failed`。顶层 Block 数与最终 HTML Section 数不必相等，但每个 Block 必须能解释。
+- `archive.json.quality.verified` 与原 `status` 分开；新版完整交付要求质量审计、物理资源哈希、离线 Reader 实测全部通过。旧版 `complete` 不自动升级为新质量认证。
+- 故障文章先到 `data/tmp/archive-candidates/` 生成独立候选，保留 `library/` 原件和 Explain。可批量尝试上限为 100 的媒体候选，超出的每个逻辑出现位置记录为 `skipped_by_media_limit`，不能伪装成完成。
+- 复现/修复命令：`node scripts/audit-source.js "<飞书文档URL>"` 获取只读来源快照；`node scripts/verify-source-fidelity.js` 验证扫描转换回归。只把已验收的候选纳入正式资料库。
 
 ## 8. Chrome Profile 与缓存
 

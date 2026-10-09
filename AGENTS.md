@@ -41,8 +41,9 @@ Then check `git status` and preserve unrelated/uncommitted work.
 
 - Feishu documents are virtualized/lazy-loaded; one viewport or one bottom-scroll is not sufficient evidence of completeness.
 - Scan repeatedly until the stable Block set stops growing.
-- Identify document structure using stable block identity/hierarchy (for example `data-block-id`), not global text deduplication.
-- Do not treat Feishu player UI, transient Blob previews, controls, or cover artifacts as authoritative document media.
+- Callout containers have their own virtual list: a stable top-level tail does NOT prove the nested content is complete. Collect overlapping nested `data-record-id` units across the scroll, require a unique gap-free chain with known first/last units, reconstruct only verified chains, and mark `scan.stopReason=callout_incomplete` if any placeholder/gap remains. Do not silently discard child text, and do not certify a partial Callout as complete.
+- Prefer stable Feishu `data-record-id` for cross-scan document identity/hierarchy, not transient `data-block-id`: verified real source scans retained all 555 recordIds but changed most blockIds. Use occurrence ordinals within the same stable record; do not guess reattachment if identity is missing.
+- Do not treat Feishu player UI, transient Blob previews, controls, or cover artifacts as authoritative document media. In particular, `.loading-placeholder-wrapper` may contain a second IMG/Blob thumbnail; remove it from captured source HTML and media inventory, not merely from the rendered Reader.
 - Preserve repeated legitimate document content; never deduplicate by visible text string globally.
 
 ## Media/archive rules
@@ -54,9 +55,9 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - A previously `complete` archive must not be downgraded just because a later preflight needs confirmation.
 - Complete archives must use local relative media paths and should not depend on Feishu CDN/blob URLs.
 - Media content deduplication is per-article and SHA-256 based. Never deduplicate solely by file size, filename, source URL, or Feishu media id.
-- Physical deduplication must preserve every logical media occurrence in the article. Multiple logical entries may intentionally point to one canonical asset.
+- Physical deduplication must preserve every logical media occurrence in the article. Frontend case-study regrouping must also preserve `reader-media--unavailable` placeholders; never remove a media block before its media children have been transferred. Multiple logical entries may intentionally point to one canonical asset.
 - Canonical asset cleanup is allowed only after the replacement Markdown/HTML/manifest has been written successfully.
-- Do not introduce a cross-article/global media pool without a separate architecture decision.
+- Do not introduce a cross-article/global media pool without a separate architecture decision. A reviewed, **isolated** preview may copy SHA-256-verified old candidate media by a provably unique stable parent `recordId` and media kind; this is still historical byte provenance. Mark `policy.provisionalAssetReuse=true`, force `unverified`, never silently certify or publish it.
 
 ## Explain / derived-deconstruction rules
 
@@ -76,6 +77,20 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Visual review should prefer a small number of explicit timestamp frames. Frame evidence must record source video, timestamp and output image SHA-256; do not bulk-export hundreds of frames by default.
 - Reuse Evidence Cases across chapters rather than re-analysing the same video independently in every chapter.
 - Detailed schema and workflow are defined in `docs/EXPLAIN-WORKFLOW.md`.
+
+## Source fidelity and delivery gate
+
+**V3 authority:** Follow `docs/ARCHIVE-QUALITY-V3.md` before capture, resume, candidate promotion or quality claims. Quality states come only from `src/archive/quality-gate.js`; a process exit code or legacy `archive.json.status=complete` is not a certified full document. A Reader QA result is valid only when bound to the Manifest, HTML and Markdown hashes. Do not publish unverified candidates. A `partial_verified` publication needs explicit user authorization.
+
+- A complete Feishu capture is NOT the same as a successful CLI process. Keep an authenticated source snapshot under the private runtime candidate workspace so that every source Block can be audited and re-rendered without silently erasing content.
+- Treat `docx-view-block` wrapping `docx-file-block` as a first-class file attachment when not a video, even if there is no `img`/`video` URL. Preserve filename, visible size, block identity and status. Do not remove "附件不支持打印" before checking the containing file block.
+- Disabled Feishu preview download controls are an authorization boundary. Do not invoke undocumented endpoints to bypass the page's permission decisions. Such files remain visible and `unresolved`, never reported as downloaded.
+- Distinguish top-level Block count from rendered Section count. Every top-level Block must be `rendered`, `empty_verified`, `unsupported_visible`, or `failed`; meaningful source content must not silently vanish.
+- Preserve Markdown heading number and title on one semantic heading line; maintain Callout, table, Prompt and inline link semantics. Avoid destructive global HTML cleanup.
+- For Agent/new captures, `archive.json.quality.verified` is separate from legacy `status`. Never assert source-faithful complete delivery until scan stability, Block coverage, media/attachment inventory, local assets, Reader playback and view testing all pass. Old archives lacking quality verification remain readable but not retroactively certified.
+- Preview or transfer real document repairs only in `data/tmp/archive-candidates/` until reviewed. Keep `library/` original/Explain untouched; make backups before any controlled publication.
+- The configured 100-media threshold is a warning; approved bounded candidates may attempt at most 100 items and mark the rest `skipped_by_media_limit`. Unknown Blob sources must be retained as failed/pending media, not removed from the inventory. Recover expiring image Blob URLs only from the same authorized visible source block.
+- Never hardcode specific user document URLs or tokens in tracked scripts. Run `node scripts/verify-source-fidelity.js` for scanner/renderer/media fidelity changes in addition to existing Agent, Reader and Release regression tests.
 
 ## Viewer/service rules
 
@@ -105,7 +120,20 @@ Then check `git status` and preserve unrelated/uncommitted work.
 - Optional `data/styles/reader.user.css` is a machine-local visual override only; keep it Git-ignored and do not rely on it for functional DOM contracts.
 - `service.bat stop` must verify process ownership before killing a PID; never kill arbitrary processes solely because they use port 4173.
 
+## Agent Skill + safe capture boundary
+
+- Canonical Skill source: `skill/feishu-notes/`. ChatGPT web uses CodexPro; supported local Agents use the project CLI. Do not embed the local Chrome Profile or library inside Skill archives.
+- Use `node scripts/agent-capture.js inspect <url>` first. Use `capture` for an absent article and `resume` only for an explicitly authorized existing `pending_confirmation` / `partial` archive. Existing `complete` is read-only; never silently refresh source text.
+- Every CLI capture (including legacy) uses the shared `data/state/capture-global.lock`; the Agent wrapper also holds its own cooperative `agent-capture.lock`. A stale lock is never auto-removed. Do not run concurrent capture on the same profile.
+- The scanner must prove a stable, repeated end-of-document pass (`scan.verifiedComplete=true`). The resume path must compare original reader text, block identities and logical media relationships before downloading; a changed source must stop without publishing.
+- File-level resume records SHA-256 assets in `data/state/agent-resume-<documentId>.json`, hard limits stream bytes per media/task, and only publishes verified Markdown/HTML/Manifest after backing up the original three files. Keep old assets/staging; never recursively clean up. `--confirm-unknown` is explicit opt-in for unknown-sized media and never bypasses hard byte limits.
+- Treat `pending_confirmation`, `partial`, failed embedded Sheet, missing media and unverified scanner tails as incomplete. The current 100-item threshold is a warning, not a claim that any 100 items are safe to download.
+- For Agent changes run `node scripts/verify-agent-capture.js` and `node scripts/verify-agent-resume.js`. Follow current `docs/EXPLAIN-WORKFLOW.md` for Explain; media-only path changes can invalidate older Explain file fingerprints.
+
 ## Required validation
+
+For V3 refactors and multi-agent handoffs, preserve existing source and user data. If the local `library/` already contains formal archives, verify an appropriate private `data/backups/fidelity-v3-*/baseline.json` checkpoint before publication or any authorized archive replacement, creating a new protected checkpoint first if none exists. A fresh clone with no formal archive does NOT require another machine's private baseline; run isolated fixture tests there instead. Run `node scripts/verify-source-protection-regression.js`, `node scripts/verify-quality-gate.js`, `node scripts/verify-publish-transaction.js`, `node scripts/verify-source-fidelity.js`, `node scripts/verify-agent-capture.js`, `node scripts/verify-agent-resume.js`, plus Reader/Release regressions. Where a local baseline exists, run `node scripts/verify-fidelity-v3-baseline.js`. Check candidate reports dynamically; Reader must return HTTP 503 while `.publish-state.json` exists. Never treat a stale candidate-report.json as truth.
+
 
 For scanner/archive changes:
 

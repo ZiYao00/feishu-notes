@@ -2,6 +2,9 @@ node_modules/
 /runtime/
 /dist/
 
+# Generated local Skill ZIPs, including failed/partial staging archives.
+/release/*.zip
+
 # Local configuration and secrets
 config/local.json
 secrets/credentials.local.json

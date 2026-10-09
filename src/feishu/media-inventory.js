@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const {assertApprovedMediaUrl}=require('./media-url-policy');
 
 function parseTotalBytes(headers) {
   const contentRange = headers['content-range'] || headers['Content-Range'];
@@ -34,40 +35,40 @@ function stableMediaId(item) {
 async function probeBlob(page, url) {
   return page.evaluate(async source => {
     const response = await fetch(source);
-    const blob = await response.blob();
-    return { size: blob.size, contentType: blob.type || 'application/octet-stream' };
+    if (!response.ok) throw Error('Blob preflight HTTP '+response.status);
+    const raw=response.headers.get('content-length');
+    const size=raw && Number.isFinite(Number(raw)) ? Number(raw) : null;
+    const contentType=response.headers.get('content-type')||'application/octet-stream';
+    // Do not materialize the entire Blob solely to discover its size.
+    if(response.body)await response.body.cancel().catch(()=>{});
+    return { size,contentType,note:size===null?'Blob size could not be probed without reading the body.':null };
   }, url);
 }
 
 async function probeRemote(context, url) {
+  let response;
   try {
-    const response = await context.request.get(url, {
-      headers: { Range: 'bytes=0-0' },
-      timeout: 30000,
+    assertApprovedMediaUrl(url);
+    // HEAD never downloads the media body. A ranged GET may be ignored and buffer
+    // the full response inside Playwright's APIResponse; never use it for preflight.
+    response = await context.request.head(url, {
+      timeout: 15000,
       failOnStatusCode: false,
     });
     const headers = response.headers();
-
-    if (response.status() === 206) {
-      return {
-        status: response.status(),
-        size: parseTotalBytes(headers),
-        contentType: headers['content-type'] || '',
-      };
-    }
-
-    if (response.status() >= 200 && response.status() < 400) {
-      return {
-        status: response.status(),
-        size: null,
-        contentType: headers['content-type'] || '',
-        note: 'Range probe was ignored, so size remains unknown.',
-      };
-    }
-
-    return { status: response.status(), size: null, contentType: '', error: `HTTP ${response.status()}` };
+    const status = response.status();
+    const size = status >= 200 && status < 300 ? parseTotalBytes(headers) : null;
+    return {
+      status,
+      size,
+      contentType: headers['content-type'] || '',
+      ...(size == null ? { note: 'HEAD did not provide a reliable size; confirm before downloading.' } : {}),
+      ...(status < 200 || status >= 400 ? { error: `HEAD HTTP ${status}` } : {}),
+    };
   } catch (error) {
     return { status: null, size: null, contentType: '', error: error.message };
+  } finally {
+    if (response) await response.dispose().catch(() => {});
   }
 }
 
@@ -97,7 +98,8 @@ async function buildMediaInventory({ document, context, page }) {
         blockIds: source.blockIds || [],
         error: probe.error,
       });
-      continue;
+      // Preserve the media occurrence in the inventory. Dropping it could
+      // falsely certify a partial archive as complete.
     }
 
     const contentType = probe.contentType || (source.kind === 'video' ? 'video/mp4' : 'application/octet-stream');

@@ -1,4 +1,7 @@
 const { chromium } = require('playwright-core');
+const crypto = require('crypto');
+const IMAGE_UI_EXCLUSION_SELECTOR = '.docx-file-block.is-in-video-v2, .preview-type-video, .xgplayer, .box-preview-wrap, .loading-placeholder-wrapper';
+const {CalloutCollector} = require('./callout-collector');
 
 function cleanInvisible(text = '') {
   return String(text)
@@ -274,6 +277,7 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
   });
 
   const blocks = new Map();
+  const callouts = new CalloutCollector();
   const media = new Map();
   const embeddedSheets = [];
   const extractedSheetIds = new Set();
@@ -327,12 +331,19 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
   let maxHeightSeen = initial.scrollHeight;
   let pass = 0;
   let stablePasses = 0;
+  let reachedTailPasses = 0;
+  let verifiedComplete = false;
+  let previousPassSignature = null;
+  let stableContentPasses = 0;
+  const maxScans = 1000;
 
-  while (pass < 4 && stablePasses < 1 && scans < 400) {
+  while (pass < 4 && !verifiedComplete && scans < maxScans) {
+    let reachedTailThisPass = false;
+    const passObserved = new Map();
     const blocksBeforePass = blocks.size;
     let pos = 0;
 
-    while (scans < 400) {
+    while (scans < maxScans) {
     const state = await page.evaluate(({ pos }) => {
       const container = document.querySelector('.bear-web-x-container');
       if (!container) return null;
@@ -357,7 +368,7 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
     );
     if (pendingVideoPlayers > 0) await page.waitForTimeout(850);
 
-    const snapshot = await page.evaluate(() => {
+    const snapshot = await page.evaluate((imageUiExclusionSelector) => {
       const pageBlock = document.querySelector('.docx-page-block.block[data-block-id]');
       if (!pageBlock) return [];
 
@@ -386,11 +397,16 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
           }
         });
 
+        // A transient Feishu loading preview may contain another IMG with a
+        // live Blob URL; it is UI chrome rather than a document occurrence.
+        // Remove it from captured HTML and exclude it from the media inventory.
+        clone.querySelectorAll('.loading-placeholder-wrapper').forEach(node => node.remove());
+
         const mediaFrom = root => [...root.querySelectorAll('img, video, source')]
           .map(node => {
             if (
               node.tagName === 'IMG' &&
-              node.closest('.docx-file-block.is-in-video-v2, .preview-type-video, .xgplayer, .box-preview-wrap')
+              node.closest(imageUiExclusionSelector)
             ) {
               return null;
             }
@@ -409,8 +425,11 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
                 : mediaNode.naturalHeight || mediaNode.getAttribute?.('height') || 0
             ) || null;
 
+            const owner=node.closest('.block[data-record-id]');
             return {
               tag,
+              ownerRecordId:owner?.getAttribute('data-record-id') || null,
+              ownerBlockId:owner?.getAttribute('data-block-id') || null,
               url: node.currentSrc || node.src || node.getAttribute('src') || '',
               width,
               height,
@@ -421,6 +440,34 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
           .filter(item => item && item.url && !item.url.startsWith('data:'));
 
         const media = mediaFrom(el);
+        const calloutWrapper = el.classList.contains('docx-callout-block')
+          ? el.querySelector('.callout-block-children > .render-unit-wrapper.callout-render-unit')
+          : null;
+        const calloutCapture = el.classList.contains('docx-callout-block')
+          ? (calloutWrapper ? {items:[...calloutWrapper.children].map(node => {
+            if(node.classList.contains('bear-virtual-renderUnit-placeholder'))return {type:'placeholder'};
+            const recordId=node.getAttribute('data-record-id');
+            if(!recordId)return {type:'unknown'};
+            return {type:'unit',recordId,html:node.outerHTML,text:node.innerText||''};
+          })} : null) : undefined;
+        const attachmentNodes = [
+          ...(el.matches('.docx-file-block') ? [el] : []),
+          ...el.querySelectorAll('.docx-file-block'),
+        ];
+        const attachments = attachmentNodes.filter(node =>
+          !node.classList.contains('is-in-video-v2') &&
+          !node.querySelector('video, source, .xgplayer, .preview-type-video')
+        ).map(node => {
+          const link = [...node.querySelectorAll('a[href]')].find(a => /^https:\/\//i.test(a.href));
+          const visible = (node.innerText || '').replace(/\s+/g, ' ').trim();
+          const name = (node.querySelector('.file-name, .preview-footer-v2__container-text')?.textContent || visible || '飞书文件附件').trim().slice(0,400);
+          return {
+            blockId: node.getAttribute('data-block-id') || el.getAttribute('data-block-id'),
+            name,
+            url: link?.href || null,
+            status: 'unresolved',
+          };
+        });
         let table = null;
 
         if (el.classList.contains('docx-table-block')) {
@@ -458,12 +505,19 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
           text: el.innerText || '',
           html: clone.outerHTML,
           media,
+          calloutCapture,
+          attachments,
           table,
         };
       });
-    });
+    }, IMAGE_UI_EXCLUSION_SELECTOR);
 
     for (const item of snapshot) {
+      if (/docx-callout-block/.test(item.className || '')) {
+        callouts.ingest(item,item.calloutCapture);
+      }
+      delete item.calloutCapture;
+      passObserved.set(item.id, item);
       if (/docx-sheet-block/.test(item.className || '') && !extractedSheetIds.has(item.id)) {
         await ensureClipboardPermissions();
         let extracted = null;
@@ -493,29 +547,39 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
           text: visibleLength(item.text) >= visibleLength(previous.text) ? item.text : previous.text,
           html: item.html.length >= previous.html.length ? item.html : previous.html,
           media: item.media.length >= previous.media.length ? item.media : previous.media,
+          attachments: item.attachments.length >= (previous.attachments || []).length ? item.attachments : previous.attachments,
           table: mergeTableSnapshots(previous.table, item.table),
         });
       }
 
-      let imageOrdinal = 0;
+      const mediaOrdinals=new Map();
       for (const entry of item.media) {
         if (entry.url.startsWith('data:')) continue;
-        const isImage = entry.tag === 'img';
-        const identity =
-          isImage && entry.url.startsWith('blob:')
-            ? `image:block:${item.id}:${imageOrdinal++}`
-            : mediaIdentity(entry.url);
+        const kind=entry.tag==='img'?'image':'video';
+        const record=entry.ownerRecordId||item.recordId||null;
+        const block=entry.ownerBlockId||item.id;
+        const ownerKey=kind+':'+(record ? 'record:'+record : 'block:'+block);
+        const ordinal=mediaOrdinals.get(ownerKey)||0;
+        mediaOrdinals.set(ownerKey,ordinal+1);
+        // A virtual Callout can mount different nested children on each pass.
+        // Anchor every occurrence to its nearest stable child record, not to
+        // whichever item happened to be visible first in the parent Callout.
+        const identity=ownerKey+':'+ordinal;
+        entry.identity = identity;
         const current = media.get(identity) || {
           identity,
           url: entry.url,
           kind: entry.tag === 'video' || entry.tag === 'source' ? 'video' : 'image',
           blockIds: [],
+          recordIds: [],
           contexts: [],
           width: null,
           height: null,
           aspectRatio: null,
         };
         if (!current.blockIds.includes(item.id)) current.blockIds.push(item.id);
+        if (record && !current.recordIds.includes(record)) current.recordIds.push(record);
+        if (item.recordId && item.recordId!==record && !current.recordIds.includes(item.recordId))current.recordIds.push(item.recordId);
         if (entry.context && !current.contexts.includes(entry.context)) current.contexts.push(entry.context);
         if (entry.width && entry.height) {
           const currentPixels = (current.width || 0) * (current.height || 0);
@@ -555,6 +619,7 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
           continue;
         }
       }
+      reachedTailThisPass = true;
       break;
     }
 
@@ -562,10 +627,25 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
     }
 
     const addedThisPass = blocks.size - blocksBeforePass;
-    stablePasses = addedThisPass === 0 ? stablePasses + 1 : 0;
+    if (reachedTailThisPass) reachedTailPasses += 1;
+    const calloutKeys=[...blocks.values()].filter(b=>/docx-callout-block/.test(b.className||''))
+      .map(b=>b.recordId||b.id);
+    const calloutCoverage=callouts.summarize(calloutKeys);
+    const sourceSignature = crypto.createHash('sha256').update(JSON.stringify([...passObserved.values()]
+      .sort((a,b) => Number(a.id) - Number(b.id))
+      .map(b => /docx-callout-block/.test(b.className||'')
+        ? [b.recordId||b.id,b.className,callouts.resolve(b.recordId||b.id).contentFingerprint||'callout_unresolved']
+        : [b.recordId||b.id, b.className, cleanInvisible(b.text), (b.media || []).length,
+          (b.attachments || []).length, JSON.stringify(b.table || null)]))).digest('hex');
+    stableContentPasses = reachedTailThisPass && passObserved.size === blocks.size && previousPassSignature === sourceSignature
+      ? stableContentPasses + 1 : 0;
+    previousPassSignature = sourceSignature;
+    stablePasses = reachedTailThisPass && addedThisPass === 0 ? stablePasses + 1 : 0;
     pass += 1;
+    verifiedComplete = reachedTailPasses >= 2 && stablePasses >= 1 && stableContentPasses >= 1 &&
+      calloutCoverage.unresolved.length === 0;
 
-    if (pass < 4 && stablePasses < 1) {
+    if (pass < 4 && !verifiedComplete && scans < maxScans) {
       await page.evaluate(() => {
         const container = document.querySelector('.bear-web-x-container');
         if (container) {
@@ -618,6 +698,29 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
     }
   }
 
+  const calloutBlocks=[...blocks.values()].filter(b=>/docx-callout-block/.test(b.className||''));
+  const calloutReconstructionErrors=[];
+  for(const block of calloutBlocks){
+    const resolved=callouts.resolve(block.recordId||block.id);
+    if(!resolved.complete)continue;
+    try {
+      const updated=await page.evaluate(({html,units})=>{
+        const inert=document.createElement('template');
+        inert.innerHTML=html;
+        const root=inert.content.firstElementChild;
+        const wrapper=root?.querySelector('.callout-block-children > .render-unit-wrapper.callout-render-unit');
+        if(!wrapper)throw Error('Missing Callout child wrapper');
+        wrapper.innerHTML=units.map(x=>x.html).join('');
+        if(wrapper.querySelector('.bear-virtual-renderUnit-placeholder'))throw Error('Unresolved nested virtual placeholder');
+        return root.outerHTML;
+      },{html:block.html,units:resolved.units});
+      blocks.set(block.id,{...block,html:updated,text:resolved.units.map(x=>x.text).join('\n'),
+        calloutRecoveredCount:resolved.observed,calloutFingerprint:resolved.contentFingerprint});
+    }catch(err){calloutReconstructionErrors.push({recordId:block.recordId||block.id,error:String(err.message).slice(0,100)});}
+  }
+  const calloutCoverage=callouts.summarize(calloutBlocks.map(b=>b.recordId||b.id));
+  verifiedComplete = verifiedComplete && calloutCoverage.unresolved.length===0 && calloutReconstructionErrors.length===0;
+
   await page.evaluate(() => {
     const container = document.querySelector('.bear-web-x-container');
     if (container) {
@@ -641,7 +744,18 @@ async function scanFeishuDocument({ cdpEndpoint, targetUrl }) {
       title,
       loginRequired: false,
       permissionDenied: false,
-      scan: { scans, maxHeightSeen, blockCount: orderedBlocks.length },
+      scan: {
+        scans,
+        maxHeightSeen,
+        blockCount: orderedBlocks.length,
+        passes: pass,
+        reachedTailPasses,
+        stableContentPasses,
+        calloutCoverage:{total:calloutCoverage.total,resolved:calloutCoverage.resolved,
+          unresolved:calloutCoverage.unresolved,reconstructionErrors:calloutReconstructionErrors},
+        verifiedComplete,
+        stopReason: verifiedComplete ? 'stable_tail' : calloutCoverage.unresolved.length||calloutReconstructionErrors.length ? 'callout_incomplete' : scans >= maxScans ? 'scan_limit' : 'pass_limit',
+      },
       blocks: orderedBlocks,
       media: [...media.values()],
       embeddedSheets,
@@ -653,4 +767,5 @@ module.exports = {
   cleanInvisible,
   documentIdFromUrl,
   scanFeishuDocument,
+  IMAGE_UI_EXCLUSION_SELECTOR,
 };

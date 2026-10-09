@@ -72,6 +72,48 @@ npm.cmd ci
 
 升级时先停止旧 Viewer，备份资料库和本机配置，再将新包解压到独立目录并迁入资料库；保留旧目录便于回退。不要直接解压覆盖私有数据。跨电脑迁移与首次登录仍需真实目标电脑验收，当前本机隔离测试不能代替这个步骤。
 
+## Agent / ChatGPT 网页版使用
+
+Canonical Skill 在 `skill/feishu-notes/`，不包含 Chrome 登录状态、归档资料库或 Node.js 运行时。ChatGPT 网页端通过已授权的 CodexPro 连接 Windows 工作区；Codex、Hermes、WorkBuddy 可按各自 Skill 安装机制读取同一规范，并使用本地 CLI。网页安装 Skill 不等于取得本机磁盘访问权限。
+
+Agent 首先检查本地是否有同一篇文章：
+
+```powershell
+node scripts/agent-capture.js inspect "<飞书文档URL>"
+```
+
+只有目标没有归档时才运行安全采集：
+
+```powershell
+node scripts/agent-capture.js capture "<飞书文档URL>" --profile default
+```
+
+包装脚本输出 `AGENT_CAPTURE_RESULT` JSON。默认拒绝覆盖已有 `complete` 归档。媒体数量软预警为 **100 个**，单文件 300 MiB / 已知合计 1 GiB 的原有预警保留。对 `pending_confirmation` 或 `partial`，明确确认后才允许文件级安全续采：
+
+```powershell
+node scripts/agent-capture.js resume "<飞书文档URL>" --profile default --confirm-unknown
+```
+
+`--confirm-unknown` 仅确认未知媒体大小，不会解除真实传输的单文件/任务总量硬预算。若还有其它媒体软预警，应先复核，再单独授权使用 `--confirm-large`。`resume` 会重新验证文末与正文版本，只下载未通过 SHA-256 校验的资产，全部成功后备份并发布原文的本地媒体路径；不会重新编写文章正文、清理旧媒体或更新 Explain 章节。文档源版本改变时立即停止。此版本支持**文件级重试**，不支持 HTTP 字节级断点续传。
+
+共享锁 `data/state/capture-global.lock` 由传统 CLI 与 Agent 一起使用；额外 `agent-capture.lock` 只约束 Agent 入口。未完成/失效的锁必须先核实进程归属，禁止自动删除。续采进度记录保存在 `data/state/`，回滚副本位于 `data/backups/`，二者都不是 Git 源码或 Skill ZIP 的一部分。
+
+验证入口：`node scripts/verify-agent-capture.js` 和 `node scripts/verify-agent-resume.js`；Reader 回归按 AGENTS.md 设置 `FEISHU_NOTES_VERIFY_KEEP_FIXTURE=1`。完整规范见 `AGENTS.md`、`docs/PROJECT-HANDBOOK.md`、`docs/ARCHITECTURE.md`，Explain 另见 `docs/EXPLAIN-WORKFLOW.md`。下载本身不会生成 Explain 章节。
+
+## 飞书长文档的来源保真与完成标准
+
+**V3 交付契约：**请先阅读 [归档保真、验收与安全发布规范](docs/ARCHIVE-QUALITY-V3.md)。`status=complete` 或命令成功不等于完整交付。使用 `node scripts/candidate-report.js <文档ID>` 查看当前物理资源和质量结果，使用 `node scripts/verify-candidate-reader.js <文档ID> [run]` 在本地生成与 HTML/Markdown/Manifest 哈希绑定的 Reader 验收记录。发布前检查原归档的 SHA-256 基线；中断事务会让 Reader 返回 503，禁止自行删除发布 Marker 或修改旧 Explain。`partial_verified` 必须获得单独发布授权。若需要核对完整正文但旧候选已有部分资源，可仅在私有候选空间使用 `node scripts/build-provisional-media-preview.js <文档ID> <旧live运行ID>`：新来源必须已完整扫描，旧媒体 SHA-256 和父 `recordId` 必须唯一匹配；这只是历史媒体隔离预览，`unverified` 不会被解除，也不得自动覆盖正式库。前端案例分组保留所有未下载媒体占位，专项回归为 `node scripts/verify-pending-media-reader.js`。
+
+`pending_confirmation`、`partial` 和 CLI 测试通过都不等于整篇文章完整交付。新采集额外写入 `archive.json.quality`，用于追踪已扫描 Block、实际转换、空块、可见受限附件、未处理资源和 Sheet 错误；旧版 `complete` 不自动视作已通过这套质量认证。
+
+飞书嵌入文件（如 ZIP、RAR、MD、HTML）可能属于 `docx-view-block`，与可播放图片/视频不同。若当前账号的飞书预览窗口把下载按钮设为禁用，程序不会通过隐藏 API 绕过限制，而是保留文件名和原文位置，并标记 `unresolved`。真正下载的媒体需有可校验本地文件与相应哈希。
+
+执行正式修复前可先用 `node scripts/audit-source.js "<飞书链接>"` 备份原始三文件并生成私有结构化快照，再在 `data/tmp/archive-candidates/` 隔离制作候选；不默认覆盖 `library/`。新版备份使用原始字节 SHA-256；旧版错误保存的 Buffer-JSON 摘要由 `node scripts/verify-source-protection.js <文档ID>` 兼容核验，但必须同时校对备份与正式文件逐字节一致。保护逻辑可用 `node scripts/verify-source-protection-regression.js` 离线测试。对内容缺失的真实文章，先查采集和结构转换，再处理媒体。桌面与窄屏离线 Reader 都必须实测通过，才能宣布完整交付。源文档与本地快照、用户浏览器的授权数据不会进入 Skill ZIP。
+
+### 查看隔离候选归档（不影响正式资料库）
+
+在 Windows 项目根目录双击 `preview-candidate.bat`，会启动只监听 `127.0.0.1:4174` 的候选 Reader。浏览器打开 `http://127.0.0.1:4174/` 即可查看最新受控候选；关闭命令窗口或按 Ctrl+C 可结束预览。该入口只读取 `data/tmp/archive-candidates/`，**不会覆盖** `library/` 原文或 Explain；候选仍可能显示 `partial` 和未下载附件/媒体，请以其质量报告为准。
+
 ## 最常用的方式
 
 ### 1. 打开本地笔记库
@@ -216,7 +258,7 @@ library/<文章目录>/
 
 - 单个媒体文件超过 300 MB：提醒。
 - 已知媒体总量超过 1 GB：提醒。
-- 媒体文件超过 40 个：提醒。
+- 媒体文件超过 100 个：提醒。
 - 存在未知大小媒体：提醒。
 
 触发软限制时，不会静默跳过，也不会直接开始大批量下载。确认后可执行：

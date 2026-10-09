@@ -1,0 +1,3 @@
+interface:
+  display_name: "Feishu Notes"
+  short_description: "Local Feishu archiving via CodexPro"

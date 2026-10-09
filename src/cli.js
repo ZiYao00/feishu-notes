@@ -13,6 +13,8 @@ const { cleanupProfileCache, sizeOf } = require('./browser/profile-maintenance')
 const { scanFeishuDocument } = require('./feishu/scanner');
 const { buildMediaInventory, evaluateMediaPolicy } = require('./feishu/media-inventory');
 const { createArchive } = require('./archive/archive-writer');
+const { resumeArchive, streamRemote, streamBlob, extFor } = require('./archive/agent-resume');
+const { acquireCaptureLock } = require('./archive/capture-lock');
 const { startViewer } = require('./viewer/server');
 
 function parseArgs(argv) {
@@ -48,10 +50,8 @@ function formatBytes(bytes) {
   return `${value.toFixed(index ? 1 : 0)} ${units[index]}`;
 }
 
-async function capture(targetUrl, flags) {
-  if (!targetUrl) throw new Error('Usage: node src/cli.js capture <feishu-doc-url> [--profile default] [--confirm-large]');
-
-  const config = loadConfig();
+async function captureUnlocked(targetUrl, flags, config) {
+  if (flags['agent-resume'] && !flags['agent-safe']) throw new Error('Agent resume requires --agent-safe.');
   const profileName = flags.profile || 'default';
   let cdpEndpoint = flags.cdp || null;
   let launched = null;
@@ -89,7 +89,10 @@ async function capture(targetUrl, flags) {
     }
 
     console.log(`Title: ${document.title}`);
-    console.log(`Blocks: ${document.scan.blockCount}, scans: ${document.scan.scans}, height: ${document.scan.maxHeightSeen}`);
+    console.log(`Blocks: ${document.scan.blockCount}, scans: ${document.scan.scans}, height: ${document.scan.maxHeightSeen}, complete: ${document.scan.verifiedComplete}, reason: ${document.scan.stopReason}`);
+    if (flags['agent-safe'] && !document.scan.verifiedComplete) {
+      throw new Error(`AGENT_SCAN_INCOMPLETE: ${document.scan.stopReason}; saved archive remains unchanged.`);
+    }
 
     const inventory = await buildMediaInventory({ document, context, page });
     const policy = evaluateMediaPolicy(inventory, config.mediaLimits);
@@ -100,16 +103,18 @@ async function capture(targetUrl, flags) {
     console.log(`Media: ${inventory.length}, known total: ${formatBytes(policy.knownTotal)}, unknown: ${policy.unknownCount}`);
     for (const warning of policy.warnings) console.log(`WARNING [${warning.type}] ${warning.message}`);
 
-    const archive = await createArchive({
-      document,
-      inventory,
-      policy,
-      context,
-      page,
+    const options = {
+      document, inventory, policy, context, page,
       archiveConfig: config.archive,
       libraryRoot: config.archive.libraryRoot,
       confirmLarge: Boolean(flags['confirm-large']),
-    });
+      agentSafe: Boolean(flags['agent-safe']),
+      mediaLimits: config.mediaLimits,
+      safeMediaTransport: { streamRemote, streamBlob, extFor }, // agent and legacy capture share the same bounded transport
+    };
+    const archive = flags['agent-resume']
+      ? await resumeArchive({ ...options, limits: config.mediaLimits, confirmUnknown: Boolean(flags['confirm-unknown']) })
+      : await createArchive(options);
 
     console.log(`Archive status: ${archive.status}`);
     console.log(`Archive: ${archive.archiveDir}`);
@@ -130,6 +135,15 @@ async function capture(targetUrl, flags) {
   } finally {
     await browser.close().catch(() => {});
   }
+}
+
+async function capture(targetUrl, flags) {
+  if (!targetUrl) throw new Error('Usage: node src/cli.js capture <feishu-doc-url> [--profile default]');
+  const config = loadConfig();
+  const documentId = new URL(targetUrl).pathname.split('/').filter(Boolean).pop();
+  const release = acquireCaptureLock(config.projectRoot, documentId);
+  try { return await captureUnlocked(targetUrl, flags, config); }
+  finally { release(); }
 }
 
 async function serve(flags) {

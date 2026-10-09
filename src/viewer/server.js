@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { readExplainManifest } = require('./explain');
+const {readMarker}=require('../archive/publish-transaction');
 const {
   readChapterManifest,
   getChapterSummary,
@@ -46,7 +47,9 @@ function listArchives(libraryRoot) {
       folder: entry.name,
       title: manifest.title || entry.name,
       savedAt: manifest.savedAt || '',
-      status: manifest.status || 'unknown',
+      status: readMarker(dir)?'publishing':manifest.status || 'unknown',
+      qualityVerdict:manifest.quality?.verdict||'legacy_unverified',
+      unresolvedAttachments:manifest.quality?.unresolvedAttachmentCount??null,
       mediaCount: media.length,
       localMediaCount: media.filter(item => item.status === 'downloaded').length,
       totalBytes: manifest.storage?.physicalBytes ?? uniquePhysicalBytes(media),
@@ -100,6 +103,8 @@ function renderIndex(items) {
         <div class="title">${escapeHtml(item.title)}</div>
         <div class="meta">
           <span class="status ${statusClass}">${escapeHtml(item.status)}</span>
+          <span>${escapeHtml(item.qualityVerdict||'legacy_unverified')}</span>
+          ${item.unresolvedAttachments?`<span>${item.unresolvedAttachments} 附件未离线</span>`:''}
           <span>${item.localMediaCount}/${item.mediaCount} 媒体</span>
           <span>${formatBytes(item.totalBytes)}</span>
           ${saved}
@@ -195,6 +200,8 @@ ${hasUserStyle ? '<link rel="stylesheet" href="/_viewer/reader.user.css">' : ''}
     <div class="reader-titlebar-title">${escapeHtml(manifest.title || folder)}</div>
     <div class="reader-titlebar-meta">
       <span class="reader-status ${statusClass}">${escapeHtml(manifest.status || 'unknown')}</span>
+      <span>${escapeHtml(manifest.quality?.verdict||'legacy_unverified')}</span>
+      ${manifest.quality?.unresolvedAttachmentCount?`<span>${manifest.quality.unresolvedAttachmentCount} 附件未离线</span>`:''}
       <span>${videoCount} 视频 · ${imageCount} 图片</span>
       <span>${formatBytes(physicalBytes)}</span>
       ${deduplicatedBytes ? `<span>去重节省 ${formatBytes(deduplicatedBytes)}</span>` : ''}
@@ -339,6 +346,13 @@ function serveViewerAsset(req, res, name) {
   serveFile(req, res, file);
 }
 
+function blockIfPublishing(res,dir){
+  if(!readMarker(dir))return false;
+  res.writeHead(503,{'Content-Type':'text/plain; charset=utf-8','Retry-After':'5','Cache-Control':'no-store'});
+  res.end('Archive is being published or requires recovery. The source is preserved.');
+  return true;
+}
+
 function startViewer({ libraryRoot, host = '127.0.0.1', port = 4173 }) {
   const server = http.createServer((req, res) => {
     try {
@@ -365,6 +379,7 @@ function startViewer({ libraryRoot, host = '127.0.0.1', port = 4173 }) {
         const folder = parts[0] || '';
         const dir = path.resolve(libraryRoot, folder);
         if (!folder || !isInside(path.resolve(libraryRoot), dir)) throw new Error('Invalid explain path.');
+        if (blockIfPublishing(res,dir))return;
 
         if (parts.length > 1) {
           res.writeHead(404);
@@ -421,6 +436,7 @@ function startViewer({ libraryRoot, host = '127.0.0.1', port = 4173 }) {
         const folder = decodeURIComponent(url.pathname.slice('/note/'.length).replace(/\/$/, ''));
         const dir = path.resolve(libraryRoot, folder);
         if (!isInside(path.resolve(libraryRoot), dir)) throw new Error('Invalid archive path.');
+        if (blockIfPublishing(res,dir))return;
 
         const manifest = readJson(path.join(dir, 'archive.json'));
         if (!manifest) {
@@ -456,6 +472,8 @@ function startViewer({ libraryRoot, host = '127.0.0.1', port = 4173 }) {
         const relativeUrl = url.pathname.slice('/library/'.length);
         const decoded = relativeUrl.split('/').map(decodeURIComponent).join(path.sep);
         const file = path.resolve(libraryRoot, decoded);
+        const folder=decoded.split(path.sep)[0];
+        if(folder && blockIfPublishing(res,path.resolve(libraryRoot,folder)))return;
         if (!isInside(path.resolve(libraryRoot), file) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
           res.writeHead(404);
           res.end('Not found');
