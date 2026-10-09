@@ -8,6 +8,7 @@ Before modifying this project, read in this order:
 2. `docs/PROJECT-HANDBOOK.md`
 3. `docs/ARCHITECTURE.md`
 4. `README.md`
+5. For V3 handoff/closeout, `docs/V3-CLOSEOUT.md` and `docs/ARCHIVE-QUALITY-V3.md`
 
 Then check `git status` and preserve unrelated/uncommitted work.
 

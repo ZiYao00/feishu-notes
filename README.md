@@ -102,6 +102,8 @@ node scripts/agent-capture.js resume "<飞书文档URL>" --profile default --con
 
 ## 飞书长文档的来源保真与完成标准
 
+**V3 工程阶段收尾与后续 Agent 接手：**见 [V3 阶段收尾记录](docs/V3-CLOSEOUT.md)。代码阶段可以收尾，但每篇文章的媒体、受限附件和来源验证仍需单独通过质量门禁，不能因为工程提交完成而宣称文章完整。
+
 **V3 交付契约：**请先阅读 [归档保真、验收与安全发布规范](docs/ARCHIVE-QUALITY-V3.md)。`status=complete` 或命令成功不等于完整交付。使用 `node scripts/candidate-report.js <文档ID>` 查看当前物理资源和质量结果，使用 `node scripts/verify-candidate-reader.js <文档ID> [run]` 在本地生成与 HTML/Markdown/Manifest 哈希绑定的 Reader 验收记录。发布前检查原归档的 SHA-256 基线；中断事务会让 Reader 返回 503，禁止自行删除发布 Marker 或修改旧 Explain。`partial_verified` 必须获得单独发布授权。若需要核对完整正文但旧候选已有部分资源，可仅在私有候选空间使用 `node scripts/build-provisional-media-preview.js <文档ID> <旧live运行ID>`：新来源必须已完整扫描，旧媒体 SHA-256 和父 `recordId` 必须唯一匹配；这只是历史媒体隔离预览，`unverified` 不会被解除，也不得自动覆盖正式库。前端案例分组保留所有未下载媒体占位，专项回归为 `node scripts/verify-pending-media-reader.js`。
 
 `pending_confirmation`、`partial` 和 CLI 测试通过都不等于整篇文章完整交付。新采集额外写入 `archive.json.quality`，用于追踪已扫描 Block、实际转换、空块、可见受限附件、未处理资源和 Sheet 错误；旧版 `complete` 不自动视作已通过这套质量认证。

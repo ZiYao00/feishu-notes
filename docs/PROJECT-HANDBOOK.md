@@ -155,6 +155,8 @@ service.bat start-open
 
 ### Agent 安全保存文章
 
+V3 工程阶段收尾与遗留任务见 `docs/V3-CLOSEOUT.md`，工程代码验收不代表任一篇文章的媒体和附件已完整离线。
+
 最新版 V3 还要求排除图片载入时 `.loading-placeholder-wrapper` 产生的重复媒体，同时核验 Reader 案例分组前后媒体数量一致，不能丢掉未下载媒体占位。源码及变更验收需运行 `node scripts/verify-pending-media-reader.js`。已下载的历史媒体可在**隔离预览**中按唯一稳定记录关系与 SHA-256 复用，但最新飞书源文件字节未重新核验时必须保持 `unverified`，不得升级为正式归档。详细规则见 `docs/ARCHIVE-QUALITY-V3.md`。
 
 Agent 首先执行 `node scripts/agent-capture.js inspect "<feishu-url>"`。未归档时可调用 `capture`；已归档且状态为 `pending_confirmation` 或 `partial` 时，只有在确认媒体告警与原文版本后才能执行 `resume`，不能用普通 `capture` 覆盖。默认数量预警已改为 **100 个**（软限制）；单文件 300 MiB、已知合计 1 GiB 的原有预警值保持。即使用户确认未知大小，真实流式下载仍受每文件/总量硬性预算约束。
