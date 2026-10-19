@@ -508,7 +508,7 @@ Feishu = 采集来源，不是离线阅读依赖
 
 ### 已确定的交付与许可
 
-本轮用户决定首发采用 **包含 Node 的 Windows x64 便携 ZIP**，用户无需安装 Node/npm。采集需要用户自行安装 Chrome，离线 Viewer 不依赖 Chrome 或飞书登录。应用版本沿用 `package.json` 的 0.1.0。用户本次已授权创建 `v0.1.0` 预发布并上传便携 ZIP；稳定版发布仍需完成目标环境验收。
+本轮用户决定首发采用 **包含 Node 的 Windows x64 便携 ZIP**，用户无需安装 Node/npm。采集需要用户自行安装 Chrome，离线 Viewer 不依赖 Chrome 或飞书登录。首发版本为 `v0.1.0` 预发布；后续增量预发布必须更新 `package.json` 与锁文件中的版本、重新构建对应提交的便携 ZIP 并核对制品，不能覆盖旧版本附件；稳定版发布仍需完成目标环境验收。
 
 项目源码暂不授予开源许可，标记 `UNLICENSED`，不生成未经授权的 MIT/Apache LICENSE。Node 和依赖的许可、NOTICE 必须随制品保留。已配置 `origin` 为 `https://github.com/ZiYao00/feishu-notes.git`，`master` 跟踪 `origin/master`；仓库保持私有，不自行改变可见性。正式支持的 Windows 版本只能来自目标环境验收；当前证据来自 Windows 10 x64，不能承诺未经验证的 Windows 11/ARM64。
 

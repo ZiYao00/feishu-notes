@@ -8,16 +8,16 @@
 
 ## 第一次使用（Windows x64 便携包）
 
-下载入口：[v0.1.0 Windows x64 预发布](https://github.com/ZiYao00/feishu-notes/releases/tag/v0.1.0)。在 **Assets** 中选择 `feishu-notes-0.1.0-windows-x64.zip`，同时下载 `SHA256SUMS.txt` 用于校验。GitHub 自动生成的 `Source code (zip)` / `Source code (tar.gz)` 仅含源码，不包含 Node 和依赖。
+下载入口：[v0.1.1 Windows x64 预发布](https://github.com/ZiYao00/feishu-notes/releases/tag/v0.1.1)。在 **Assets** 中选择 `feishu-notes-0.1.1-windows-x64.zip`，同时下载 `SHA256SUMS.txt` 用于校验。GitHub 自动生成的 `Source code (zip)` / `Source code (tar.gz)` 仅含源码，不包含 Node 和依赖。
 
-当前仓库为私有仓库，下载需要登录具有仓库访问权限的 GitHub 账号。本次为预发布：已完成 Windows 10 x64 主机上的独立安装、便携包、离线播放与迁移验证，真实新电脑/干净 Windows 系统及全新 Profile 首次飞书登录/抓取仍待验收。
+当前仓库为私有仓库，下载需要登录具有仓库访问权限的 GitHub 账号。本次 v0.1.1 为预发布：在 v0.1.0 便携交付基础上新增 V3 归档保真与安全预览修复，并通过本机自动回归；既有 Windows 10 x64 独立安装、便携包、离线播放与迁移证据属于 v0.1.0，v0.1.1 的实际 ZIP 仍需独立核验。真实新电脑/干净 Windows 系统及全新 Profile 首次飞书登录/抓取仍待验收。
 
 便携 ZIP 包含 Node.js 运行时及锁定的 npm 依赖，无需安装 Node.js、npm 或 Git。包内没有文章、飞书账号、登录状态或本机配置。源码仓库本身不包含运行时和依赖，不能将源码 ZIP 当作便携包。
 
 解压前可在 ZIP 下载目录执行以下命令，将输出的 Hash 与 `SHA256SUMS.txt` 中的值比较，忽略字母大小写：
 
 ```powershell
-Get-FileHash .\feishu-notes-0.1.0-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\feishu-notes-0.1.1-windows-x64.zip -Algorithm SHA256
 ```
 
 1. 将完整便携 ZIP 解压到自己有写入权限的目录，不在压缩包内直接运行。路径可包含中文和空格；不要放在需要管理员写入权限的系统目录。
