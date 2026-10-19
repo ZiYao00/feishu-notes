@@ -5,6 +5,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# A Git Bash-launched PowerShell process may lack .EXE in PATHEXT. Restore only process-local lookup.
+if (@($env:PATHEXT -split ';') -notcontains '.EXE') {
+    $env:PATHEXT = '.COM;.EXE;.BAT;.CMD;' + $env:PATHEXT
+}
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -37,7 +41,8 @@ try {
                 $name -match '^config/(default\.json|local\.example\.json)$' -or
                 $name -eq 'secrets/credentials.example.json' -or
                 $name -match '^(data/(cache|logs|profiles|state|styles|tmp)|library)/\.gitkeep$' -or
-                $name -match '^(\.gitignore|AGENTS\.md|README\.md|package(-lock)?\.json|service\.bat|notes\.bat)$'
+                $name -match '^skill/feishu-notes/(SKILL\.md|agents/openai\.yaml|references/(chatgpt-codexpro|local-agent|validation)\.md)$' -or
+                $name -match '^(\.gitignore|AGENTS\.md|README\.md|package(-lock)?\.json|service\.bat|notes\.bat|preview-candidate\.bat)$'
             if (-not $allowed -or $name -match '(^|/)\.\.(/|$)|\\|^[A-Za-z]:') { throw "Unexpected source artifact entry: $name" }
         }
     } finally { $sourceArchive.Dispose() }
